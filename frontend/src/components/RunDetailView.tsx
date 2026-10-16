@@ -164,6 +164,21 @@ export const RunDetailView: React.FC<RunDetailViewProps> = ({ runId, onBack }) =
               >
                 {detail.status}
               </span>
+              <span
+                className={`badge ${
+                  detail.track === 'lowlevel'
+                    ? 'badge-warning'
+                    : detail.track === 'accelerator'
+                    ? 'badge-primary'
+                    : 'badge-neutral'
+                }`}
+              >
+                {detail.track === 'lowlevel'
+                  ? 'Low-Level CPU Lab'
+                  : detail.track === 'accelerator'
+                  ? 'GPU Accelerator Lab'
+                  : 'Languages Track'}
+              </span>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
               Run ID: <code>{detail.id}</code> &bull; Created: {new Date(detail.created_at).toUTCString()}
@@ -612,6 +627,54 @@ export const RunDetailView: React.FC<RunDetailViewProps> = ({ runId, onBack }) =
                   {inspectExecution.build_command || 'No explicit build step required (Interpreted / JIT)'}
                 </pre>
               </div>
+
+              {inspectExecution.compiler_name && (
+                <div style={{ padding: '0.75rem', backgroundColor: 'var(--bg-muted)', borderRadius: '6px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', fontSize: '0.8rem' }}>
+                    <div><strong>Compiler:</strong> {inspectExecution.compiler_name}</div>
+                    <div><strong>Opt Level:</strong> {inspectExecution.opt_level}</div>
+                    <div><strong>Target Arch:</strong> {inspectExecution.target_arch || 'x86_64'}</div>
+                    <div><strong>Binary Size:</strong> {inspectExecution.executable_size_bytes ? `${(inspectExecution.executable_size_bytes / 1024).toFixed(1)} KB` : 'N/A'}</div>
+                  </div>
+                </div>
+              )}
+
+              {inspectExecution.compiler_remarks && (
+                <div>
+                  <strong>Compiler Vectorization & Optimization Remarks:</strong>
+                  <pre style={{ backgroundColor: 'var(--bg-muted)', padding: '0.6rem', borderRadius: '4px', marginTop: '4px', color: 'var(--accent-primary)', fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}>
+                    {inspectExecution.compiler_remarks}
+                  </pre>
+                </div>
+              )}
+
+              {inspectExecution.generated_assembly && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong>Generated Machine Assembly (Intel Syntax):</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {inspectExecution.executable_size_bytes ? `${(inspectExecution.executable_size_bytes / 1024).toFixed(1)} KB binary` : ''}
+                    </span>
+                  </div>
+                  <pre style={{ backgroundColor: '#090d16', color: '#38bdf8', padding: '0.75rem', borderRadius: '4px', marginTop: '4px', maxHeight: '250px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                    {inspectExecution.generated_assembly}
+                  </pre>
+                </div>
+              )}
+
+              {inspectExecution.gpu_device_name && (
+                <div style={{ padding: '0.75rem', backgroundColor: 'rgba(56, 189, 248, 0.08)', border: '1px solid var(--accent-primary)', borderRadius: '6px' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '0.4rem' }}>
+                    GPU Breakdown & Telemetry: {inspectExecution.gpu_device_name} (CC {inspectExecution.gpu_compute_capability}, Driver {inspectExecution.gpu_driver_version})
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', fontSize: '0.8rem' }}>
+                    <div>Kernel: <strong>{inspectExecution.kernel_duration_ms ? `${inspectExecution.kernel_duration_ms.toFixed(3)} ms` : 'N/A'}</strong></div>
+                    <div>H2D Transfer: <strong>{inspectExecution.transfer_h2d_ms ? `${inspectExecution.transfer_h2d_ms.toFixed(3)} ms` : 'N/A'}</strong></div>
+                    <div>D2H Transfer: <strong>{inspectExecution.transfer_d2h_ms ? `${inspectExecution.transfer_d2h_ms.toFixed(3)} ms` : 'N/A'}</strong></div>
+                    <div>Bandwidth: <strong>{inspectExecution.effective_bandwidth_gbps ? `${inspectExecution.effective_bandwidth_gbps.toFixed(1)} GB/s` : 'N/A'}</strong></div>
+                  </div>
+                </div>
+              )}
 
               {inspectExecution.build_stderr && (
                 <div>

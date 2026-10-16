@@ -2,7 +2,7 @@
 
 ## Overview
 
-**ExecLens** is a production-grade, open-source systems performance benchmarking platform engineered to measure and compare equivalent computational workloads across programming languages under controlled, transparent, and reproducible conditions.
+**ExecLens** is a production-grade, open-source systems performance benchmarking platform engineered to measure and compare equivalent computational workloads across programming languages, CPU micro-architectural configurations, and GPU accelerators under controlled, transparent, and reproducible conditions.
 
 ```mermaid
 flowchart TD
@@ -20,25 +20,26 @@ flowchart TD
         Pool["Bounded Worker Pool (internal/jobs)"]
         Reconcile["Crash Recovery & Reconciler"]
         Engine["Measurement Engine (internal/engine)"]
+        TrackRegistry["TrackRunner Registry (Decoupled Dispatch)"]
     end
 
-    subgraph Domain ["Domain Catalog & Adapters"]
-        LangReg["Language Registry (internal/languages)"]
-        Adapters["6 Language Adapters (C++, Rust, Go, Java, Python, JS)"]
-        WorkloadReg["Workload Catalog (internal/workloads)"]
-        Contracts["Workload Contracts (Sieve, Sort, Hashmap, JSON, Matrix, I/O)"]
+    subgraph Tracks ["Multi-Track Execution Subsystems"]
+        LangTrack["Track 1: Languages Suite (internal/languages)"]
+        LowLevelTrack["Track 2: Low-Level & Compiler Lab (internal/lowlevel)"]
+        GPUTrack["Track 3: GPU & Accelerator Lab (internal/accelerators)"]
     end
 
-    subgraph System ["Operating System & Hardware"]
+    subgraph System ["Operating System & Hardware Isolation"]
         Proc["Process Group (pgid, setpgid)"]
         KernelUsage["Linux Kernel getrusage (MaxRSS)"]
         MonoClock["Monotonic Clock (CLOCK_MONOTONIC)"]
         Subprocess["Isolated Child Processes"]
+        HardwareDiscovery["Accelerator Hardware Discovery (CUDA/OpenCL/SYCL/HIP)"]
     end
 
     subgraph Storage ["Persistence (internal/database)"]
         SQLite["SQLite 3 (WAL mode, busy_timeout=5000)"]
-        Migrations["Versioned SQL Migrations"]
+        Migrations["Versioned SQL Migrations (0001, 0002_multitrack)"]
     end
 
     CLI --> Engine
@@ -46,14 +47,15 @@ flowchart TD
     Router --> Handlers
     Handlers --> Pool
     Pool --> Engine
-    Engine --> LangReg
-    Engine --> WorkloadReg
-    LangReg --> Adapters
-    WorkloadReg --> Contracts
+    Engine --> TrackRegistry
+    TrackRegistry --> LangTrack
+    TrackRegistry --> LowLevelTrack
+    TrackRegistry --> GPUTrack
     Engine --> Proc
     Proc --> Subprocess
     Proc --> KernelUsage
     Proc --> MonoClock
+    GPUTrack --> HardwareDiscovery
     Handlers --> SQLite
     Engine --> SQLite
     Reconcile --> SQLite
@@ -64,7 +66,7 @@ flowchart TD
 
 ## 1. Architectural Principles
 
-1. **Separation of Compilation and Execution**:
+1. **Separation of Compilation and Steady-State Execution**:
    Compilation and preparatory phases are tracked independently (`build_duration_ns`) and never conflated with steady-state algorithmic execution duration.
 2. **Deterministic Correctness Validation**:
    Prior to recording any timed repetitions, the execution engine validates output correctness against an expected contract. If validation fails, timing is rejected and marked `FAILED`.
@@ -72,6 +74,10 @@ flowchart TD
    ExecLens reports central tendencies (median and mean), sample standard deviation, coefficient of variation (CV%), and Student's t 95% confidence intervals. It flags whether observed differences exceed practical thresholds (5%) or are within measurement noise.
 4. **Security & Process Boundaries**:
    Subprocesses are invoked via fixed binary paths and argument vectors (no shell string interpolation). Child processes are isolated in separate process groups (`setpgid: true`) to ensure that cancellations and timeouts immediately clean up the entire process tree without leaving orphaned processes.
+5. **Decoupled Multi-Track Dispatch via `TrackRunner`**:
+   To prevent circular package dependencies between the central engine and specialized domain modules (`lowlevel`, `accelerators`), ExecLens employs an inversion-of-control registry pattern. Tracks register a `TrackRunner` interface implementation during initialization.
+6. **Honest Accelerator Reporting**:
+   ExecLens detects hardware devices, drivers, and compiler toolchains at runtime. When hardware is absent or incompatible (e.g. driver/toolkit architecture mismatch), it reports the diagnostic reason transparently—never fabricating numbers or silently substituting CPU execution.
 
 ---
 
@@ -80,7 +86,10 @@ flowchart TD
 ### A. CLI (`cmd/execlens`)
 The unified command-line entry point supporting:
 - `execlens server`: Starts the REST API service and embedded dashboard.
-- `execlens run`: Directly executes benchmark workloads from the terminal and outputs formatted Markdown tables and metrics summaries.
+- `execlens run`: Directly executes multi-language benchmark workloads.
+- `execlens lowlevel`: Executes CPU micro-architectural and compiler optimization benchmarks.
+- `execlens cuda`: Executes GPU CUDA benchmarks with CPU reference comparisons.
+- `execlens accelerators`: Inspects detected accelerator backends (CUDA, OpenCL, SYCL, HIP).
 - `execlens languages`: Probes host compilers and runtimes.
 - `execlens workloads`: Inspects the workload catalog.
 - `execlens list`: Queries past benchmark runs.
@@ -89,32 +98,37 @@ The unified command-line entry point supporting:
 
 ### B. REST API Layer (`internal/api`)
 Built using Go standard library HTTP routing with parameter validation:
-- `GET /api/v1/health`
-- `GET /api/v1/stats`
-- `GET /api/v1/languages`
-- `GET /api/v1/workloads`
-- `GET /api/v1/runs` (paginated, with workload and status filtering)
-- `POST /api/v1/runs` (input validation, creates run and enqueues to worker pool)
-- `GET /api/v1/runs/{runId}` (retrieves run details and on-the-fly relative metrics)
-- `POST /api/v1/runs/{runId}/cancel`
-- `GET /api/v1/runs/{runId}/export?format=json|csv`
-- `GET /api/v1/runs/{runId}/report`
-- `GET /api/v1/compare?run_ids=...` (multi-run comparative analysis with compatibility checks)
+- `GET /api/v1/health`: Service health status.
+- `GET /api/v1/stats`: Summary counters and active runtimes across all tracks.
+- `GET /api/v1/tracks`: Multi-track overview, active catalog, and hardware status.
+- `GET /api/v1/languages`: Supported languages and host toolchain versions.
+- `GET /api/v1/workloads`: Catalog of cross-language benchmark workloads.
+- `GET /api/v1/lowlevel/catalog`: Catalog of CPU low-level workloads, variants, and compilers.
+- `GET /api/v1/accelerators`: Probed accelerator devices and diagnostic notes.
+- `GET /api/v1/accelerators/catalog`: Catalog of GPU accelerator workloads and metrics.
+- `GET /api/v1/runs`: Paginated benchmark history with optional track and status filters.
+- `POST /api/v1/runs`: Input validation, creates run and enqueues to worker pool.
+- `GET /api/v1/runs/{runId}`: Retrieves run details, metrics, compiler assembly, and GPU telemetry.
+- `POST /api/v1/runs/{runId}/cancel`: Cancels active benchmark jobs.
+- `GET /api/v1/runs/{runId}/export?format=json|csv`: Data export.
+- `GET /api/v1/runs/{runId}/report`: Formatted Markdown report.
+- `GET /api/v1/compare?run_ids=...`: Side-by-side run comparison with compatibility checks.
 
 ### C. Bounded Worker Pool (`internal/jobs`)
 Limits concurrent benchmark executions (default: 1) to eliminate CPU core contention and cache thrashing. Coordinates job lifecycle, supports graceful context cancellation, and traps unexpected worker panics to prevent service termination.
 
-### D. Measurement Engine (`internal/engine`)
-Executes the benchmark lifecycle for each language:
-1. Probes toolchain availability and versions.
-2. Compiles source code (if compiled language).
-3. Executes correctness validation pass.
-4. Executes warm-up iterations (tagged `is_warmup: true`).
-5. Executes measured repetitions (tagged `is_warmup: false`).
-6. Queries Linux kernel `rusage.Maxrss` for peak physical memory.
-7. Computes descriptive statistics and 95% confidence intervals.
+### D. Measurement Engine & Decoupled Track Dispatch (`internal/engine`)
+The measurement engine manages the execution lifecycle:
+```go
+type TrackRunner interface {
+    RunTrack(ctx context.Context, run *database.Run, db *database.DB, updateProgress func(pct int, stage string)) error
+}
+```
+During program startup, specialized runners register themselves:
+- `engine.RegisterTrackRunner("lowlevel", lowlevel.NewRunner(...))`
+- `engine.RegisterTrackRunner("gpu", accelerators.NewCUDARunner(...))`
 
-### E. Language Registry & Adapters (`internal/languages`)
+### E. Track 1: Languages Suite (`internal/languages`)
 Modular adapter interface defining toolchain requirements, build commands, execution flags, timeouts, and warm-up policies for:
 - **C++**: Native compiled execution via GCC/G++ `-O3 -std=c++20`.
 - **Rust**: Native compiled execution via `rustc -C opt-level=3 -C codegen-units=1`.
@@ -123,23 +137,53 @@ Modular adapter interface defining toolchain requirements, build commands, execu
 - **Python**: Interpreter execution via CPython `python3 -u`.
 - **JavaScript**: V8 runtime execution via Node.js with warm-up.
 
-### F. Workload Catalog & Contracts (`internal/workloads`)
-Catalog of 6 deterministic workloads with explicit validation contracts:
-1. `sieve`: Prime counting using Sieve of Eratosthenes (CPU and boolean array traversal).
-2. `sort`: 32-bit integer array sorting with deterministic LCG generator (quicksort vs stdlib modes).
-3. `hashmap`: String-to-integer hash table insertions and lookups (allocation, hashing, collision handling).
-4. `json_proc`: Deserialization, filtering, and aggregation of synthetic JSON documents.
-5. `matrix`: Double-precision NxN matrix multiplication ($O(N^3)$ tight nested loops).
-6. `file_proc`: Streaming buffered 64KB I/O with SHA-256 digest computation.
+### F. Track 2: Low-Level Code & Compiler Explorer Lab (`internal/lowlevel`)
+Provides deep micro-architectural exploration and compiler inspection:
+1. **Micro-Architectural Workloads (`benchmarks/lowlevel/`)**:
+   - `reduction.cpp`: Scalar vs autovec vs explicit AVX2 SIMD intrinsics vs OpenMP vs inline x86_64 assembly.
+   - `dot_product.cpp`: Double-precision dot product with AVX2+FMA (`_mm256_fmadd_pd`).
+   - `layout_memory.cpp`: Array of Structures (AoS) vs Structure of Arrays (SoA) particle simulation.
+   - `pointer_chase.cpp`: Contiguous memory streaming vs random cycle pointer chasing (prefetcher defeat).
+   - `memory_copy.cpp`: glibc `memcpy` vs scalar byte loop vs 64-bit unrolled loop vs 32-byte aligned AVX2 non-temporal streaming stores (`_mm256_stream_si256` with `posix_memalign`).
+2. **Compiler Explorer Pipeline**:
+   - Compiles with GCC (`g++`) or Clang (`clang++`) under `-O0` to `-Ofast`.
+   - Generates Intel-syntax assembly (`-S -masm=intel`).
+   - Captures vectorization remarks (`-fopt-info-vec-optimized` for GCC, `-Rpass=loop-vectorize` for Clang).
+   - Measures binary executable file size in bytes.
 
-### G. Database & Versioned Migrations (`internal/database`)
-SQLite 3 database configured with Write-Ahead Logging (`WAL`), 5000ms busy timeout, and foreign key constraints. Includes automatic startup migration runner and crash reconciliation (`ReconcileInterruptedRuns`) to reconcile interrupted runs upon server restart.
+### G. Track 3: CUDA & GPU Compute Lab (`internal/accelerators`)
+Provides GPU kernel measurement, hardware telemetry, and heterogeneous comparisons:
+1. **Hardware & Toolchain Prober**:
+   - Probes `nvidia-smi` and `nvcc --version`.
+   - Detects GPU model, driver version, CUDA version, and Compute Capability.
+   - Validates architecture support (e.g., handles cases where newer toolchains drop legacy architectures like CUDA 13.3 dropping Pascal `sm_61`).
+   - Detects OpenCL (`clinfo`), SYCL (`icpx`), and ROCm/HIP (`hipcc`).
+2. **Dedicated CUDA Workloads (`benchmarks/cuda/`)**:
+   - `vec_add_saxpy.cu`: Vector addition and SAXPY.
+   - `parallel_reduction.cu`: Tree reduction with warp shuffle unrolling.
+   - `matrix_mul.cu`: Naive global memory vs 16x16 tiled shared memory vs cache-blocked CPU reference.
+   - `convolution_1d.cu`: 1D stencil convolution with shared memory halo caching.
+   - `histogram_scan.cu`: 256-bin histogram using shared memory atomics.
+   - `bandwidth_transfer.cu`: PCIe bandwidth comparison: Pageable vs Pinned memory (`cudaHostAlloc`).
+3. **Timing & Metric Extraction**:
+   - Synchronized kernel duration via `cudaEvent_t`.
+   - Host-to-Device (H2D) and Device-to-Host (D2H) transfer durations.
+   - Memory allocation duration (`cudaMalloc` / `cudaFree`).
+   - Effective bandwidth (GB/s) and GFLOPS computation.
+   - Side-by-side CPU reference baseline comparison.
 
-### H. Frontend Dashboard (`frontend/`)
-Vite + React 19 + TypeScript application with Tailwind/modern CSS design system:
-- Summary dashboard with active runtimes and stats.
-- Benchmark launch modal with live parameter customization.
-- Results explorer with interactive Recharts charts (median time, speedup, memory, throughput).
-- Live execution polling during active runs.
+### H. Database & Versioned Migrations (`internal/database`)
+SQLite 3 database configured with Write-Ahead Logging (`WAL`), 5000ms busy timeout, and foreign key constraints:
+- `0001_initial.sql`: Runs, Language Executions, and Benchmark Samples tables.
+- `0002_multitrack.sql`: Adds `runs.track` index and columns for compiler flags, optimization level, target architecture, executable size, generated assembly, compiler remarks, and GPU execution metrics (`kernel_duration_ns`, `transfer_h2d_ns`, `transfer_d2h_ns`, `alloc_duration_ns`, `effective_bandwidth_gbps`, `gflops`, `gpu_device_name`, `gpu_compute_capability`, `gpu_driver_version`).
+
+### I. Frontend Dashboard (`frontend/`)
+Vite + React 19 + TypeScript application:
+- Interactive multi-track launcher with live parameter customization.
+- Results explorer with Recharts interactive charts (time, speedup, memory, throughput, bandwidth, GFLOPS).
+- Assembly viewer with syntax highlighting and copy support.
+- Compiler vectorizer remarks inspector.
+- GPU execution breakdown telemetry bar.
 - Side-by-side run comparison with compatibility warnings.
 - Dark and Light mode themes.
+

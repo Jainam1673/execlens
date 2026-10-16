@@ -90,8 +90,97 @@ ExecLens designs workloads so that implementations perform equivalent algorithmi
 
 ---
 
-## 5. Environmental Factors & Limitations
+## 5. Low-Level CPU Microbenchmarking & Compiler Exploration
+
+The Low-Level Code Lab evaluates performance characteristics at the CPU micro-architecture and compiler optimization levels.
+
+### A. Auto-Vectorization vs Explicit SIMD vs Handwritten Assembly
+A common myth in systems programming is that handwritten assembly or explicit SIMD intrinsics are unconditionally faster than modern compiler-generated code. ExecLens benchmarks this empirically:
+1. **Scalar Baseline**: Compiled with `-fno-tree-vectorize -fno-vectorize` to establish single-element scalar baseline performance.
+2. **Auto-Vectorized Code**: Enables the compiler's auto-vectorizer (`-O3 -mavx2 -mfma`). Modern compilers (GCC and Clang) frequently perform loop unrolling, vector register re-association, and instruction scheduling that can match or exceed hand-coded intrinsics.
+3. **Explicit SIMD Intrinsics**: Uses AVX2 / FMA intrinsics (such as `_mm256_fmadd_pd` and `_mm256_loadu_pd`). Demonstrates deterministic vectorization when compiler heuristics fail to auto-vectorize complex control flows.
+4. **Inline x86_64 Assembly**: Directly invokes vectorized assembly instructions (`vaddps`, `vmulps`, etc.). Demonstrates register allocation tradeoffs and instruction-level parallelism limitations.
+
+### B. Memory Layout: AoS vs SoA
+Data layout dramatically alters cache line utilization:
+- **Array of Structures (AoS)**: In particle simulation (`struct { float x, y, z, vx, vy, vz, mass; }`), streaming updates to position (`x += vx * dt`) load entire 32-byte structures into L1 cache lines, but only utilize 16 bytes per element, discarding 50% of the loaded cache bandwidth.
+- **Structure of Arrays (SoA)**: Separates fields into independent contiguous arrays (`float x[]`, `float vx[]`). Every cache line loaded contains 100% useful payload for SIMD vector loads (`_mm256_load_ps`), doubling effective memory bandwidth and enabling 8-wide single-instruction updates.
+
+### C. Contiguous Access vs Cache Prefetcher Defeat
+Modern CPU hardware prefetchers detect linear and constant-stride memory access patterns, preloading lines into L1/L2 caches before instructions execute:
+- **Contiguous Array Streaming**: Linear traversal achieves maximum throughput by saturating memory bandwidth with hardware prefetching.
+- **Pseudo-Random Pointer Chasing**: Elements are chained into a Hamiltonian cycle spanning a buffer larger than the CPU Last-Level Cache (LLC). Each dereference depends on the previous load (`curr = curr->next`), completely defeating hardware prefetchers and measuring pure DRAM random access latency (60–80 ns).
+
+### D. Memory Copy Mechanisms & Streaming Stores
+Memory copying exhibits stark performance boundaries depending on cache interaction:
+- **glibc `memcpy`**: Highly tuned standard library implementation utilizing architecture-specific dynamic dispatch (AVX-512/AVX2 with unrolled block copying).
+- **Scalar Byte Copy**: Single-byte `char*` loop, bottlenecked by instruction dispatch and single-byte memory transactions.
+- **Unrolled 64-bit Copy**: Copies 8 bytes per iteration with 4x unrolling, reducing loop branch overhead.
+- **AVX2 Streaming Non-Temporal Stores (`_mm256_stream_si256`)**:
+  Requires strict 32-byte memory alignment (allocated via `posix_memalign`). Uses non-temporal streaming store instructions that bypass the CPU cache hierarchy entirely, writing directly to DRAM via write-combining buffers. This avoids cache pollution when processing multi-megabyte datasets that will not be immediately re-read.
+
+### E. Compiler Optimization Diagnostics
+ExecLens compiles C++ sources under GCC and Clang with optimization flags `-O0` through `-Ofast` and captures:
+- **Intel-Syntax Assembly (`-S -masm=intel`)**: Preserved for user inspection to understand code generation differences.
+- **Vectorization Remarks (`-fopt-info-vec-optimized` / `-Rpass=loop-vectorize`)**: Extracts compiler diagnostics explaining which loops were vectorized, unrolled, or rejected.
+
+---
+
+## 6. CUDA & GPU Measurement Boundaries
+
+Benchmarking GPU execution requires strict separation of asynchronous boundaries. Naive host timers produce fundamentally invalid GPU metrics.
+
+### A. Asynchronous Execution & `cudaEvent_t` Timing
+CUDA kernel launches (`kernel<<<grid, block>>>`) are asynchronous non-blocking calls on the host CPU. A standard CPU timer started before the launch and stopped immediately after will measure only the launch overhead (microseconds), not the actual execution on the GPU.
+ExecLens uses synchronized GPU event timing:
+```cpp
+cudaEvent_t start, stop;
+cudaEventCreate(&start);
+cudaEventCreate(&stop);
+
+cudaEventRecord(start, 0);
+kernel<<<grid, block>>>(...);
+cudaEventRecord(stop, 0);
+
+cudaEventSynchronize(stop);
+float ms = 0.0f;
+cudaEventElapsedTime(&ms, start, stop);
+```
+
+### B. Isolated Measurement Breakdown
+ExecLens breaks down GPU execution into five distinct metrics:
+1. **Allocation Duration (`alloc_duration_ns`)**: Time spent allocating and freeing device memory (`cudaMalloc`, `cudaFree`).
+2. **Host-to-Device Transfer (`transfer_h2d_ns`)**: PCIe transfer time moving input vectors from system RAM to GPU VRAM (`cudaMemcpyHostToDevice`).
+3. **Pure Kernel Duration (`kernel_duration_ns`)**: High-precision `cudaEvent_t` time spent executing computation on GPU Streaming Multiprocessors (SMs).
+4. **Device-to-Host Transfer (`transfer_d2h_ns`)**: PCIe transfer time copying verified results back to system memory (`cudaMemcpyDeviceToHost`).
+5. **End-to-End Wall-Clock Time**: Total duration encompassing allocation, transfers, kernel execution, and device synchronization.
+
+### C. Effective Bandwidth & GFLOPS Calculation
+- **Effective Bandwidth**:
+  $$\text{Bandwidth (GB/s)} = \frac{\text{Bytes Read} + \text{Bytes Written}}{\text{Kernel Time (ns)}}$$
+- **Computational Throughput**:
+  $$\text{GFLOPS} = \frac{\text{Floating Point Operations}}{\text{Kernel Time (ns)}}$$
+
+### D. PCIe Transfer: Pageable vs Pinned Memory
+Transfer speed across the PCIe bus depends heavily on host memory allocation:
+- **Pageable Host Memory** (`malloc`): The CUDA driver must first copy data into a temporary pinned buffer before initiating Direct Memory Access (DMA) over PCIe, halving effective transfer bandwidth.
+- **Pinned Host Memory** (`cudaHostAlloc`): Allocates page-locked physical memory that the GPU DMA engine can access directly without CPU intervention, saturating the physical PCIe bus bandwidth (e.g., 6–12+ GB/s on PCIe Gen3/4).
+
+### E. Fair Heterogeneous CPU vs GPU Comparisons
+Comparing CPU and GPU performance is invalid if boundaries are mixed:
+- **Kernel-Only vs CPU Algorithm**: Compares the compute efficiency of the GPU Streaming Multiprocessors against the CPU cache and vector ALUs, assuming data already resides in registers/VRAM.
+- **End-to-End vs CPU Algorithm**: Accounts for PCIe data movement penalty. For small workloads (e.g., vectors under 100K elements), PCIe transfer overhead frequently exceeds kernel execution, making the CPU faster end-to-end. ExecLens presents both metrics side-by-side so engineers understand the crossover point.
+
+### F. Honest Failure & Hardware Diagnostics
+ExecLens never fabricates benchmark numbers or silently substitutes a CPU implementation when a GPU run is requested.
+When GPU hardware is missing, drivers are unloaded, or the installed CUDA toolkit version does not support the physical device architecture (such as CUDA 13.3 dropping Compute Capability 6.1 Pascal devices), ExecLens marks the run as `SKIPPED` and provides the exact diagnostic explanation (e.g., `CUDA Toolkit nvcc dropped support for compute_61 architecture`).
+
+---
+
+## 7. Environmental Factors & Limitations
 
 - **Host CPU Throttling**: Turbo boost frequencies and thermal throttling can influence subsequent iterations. ExecLens defaults to single-concurrency execution to prevent core saturation.
+- **GPU Clock Scaling & Warm-Up**: GPU boost clocks scale dynamically with temperature and power limits. ExecLens performs explicit warm-up kernel launches to stabilize clock frequencies prior to timed repetitions.
 - **OS Page Cache**: File I/O benchmarks measure buffered kernel read throughput and SHA-256 calculation rather than raw physical NVMe/SATA hardware latency.
 - **Containerization**: Subprocess execution on a bare host may experience different memory paging characteristics than containerized Docker environments.
+

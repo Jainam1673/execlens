@@ -66,6 +66,31 @@ else
     exit 1
 fi
 
+echo "4b. Verifying multitrack endpoints..."
+TRACKS_RES=$(curl -s "http://127.0.0.1:${PORT}/api/v1/tracks")
+if echo "$TRACKS_RES" | grep -q "languages" && echo "$TRACKS_RES" | grep -q "lowlevel" && echo "$TRACKS_RES" | grep -q "accelerator"; then
+    echo "✅ /api/v1/tracks returned all 3 tracks."
+else
+    echo "❌ Tracks verification failed: $TRACKS_RES"
+    exit 1
+fi
+
+LOWLEVEL_RES=$(curl -s "http://127.0.0.1:${PORT}/api/v1/lowlevel/catalog")
+if echo "$LOWLEVEL_RES" | grep -q "lowlevel_reduction"; then
+    echo "✅ /api/v1/lowlevel/catalog returned lowlevel catalog."
+else
+    echo "❌ Lowlevel catalog verification failed: $LOWLEVEL_RES"
+    exit 1
+fi
+
+ACCEL_RES=$(curl -s "http://127.0.0.1:${PORT}/api/v1/accelerators")
+if echo "$ACCEL_RES" | grep -q "cuda"; then
+    echo "✅ /api/v1/accelerators returned accelerator status."
+else
+    echo "❌ Accelerators verification failed: $ACCEL_RES"
+    exit 1
+fi
+
 echo "5. Creating a deterministic benchmark run via POST /api/v1/runs..."
 RUN_PAYLOAD='{"workload_id":"sieve","languages":["go","rust"],"workload_params":{"limit":50000},"iterations":2,"warmup_iterations":1,"execution_mode":"standard"}'
 CREATE_RES=$(curl -s -X POST "http://127.0.0.1:${PORT}/api/v1/runs" \

@@ -14,12 +14,18 @@ import (
 	"github.com/execlens/execlens/internal/workloads"
 )
 
+// TrackRunner defines the execution contract for non-language tracks (e.g. lowlevel, accelerator).
+type TrackRunner interface {
+	ExecuteRun(ctx context.Context, run *database.Run) error
+}
+
 // Executor orchestrates build, validation, and benchmarking of workloads.
 type Executor struct {
 	db            *database.DB
 	langRegistry  *languages.Registry
 	workloadReg   *workloads.Registry
 	benchmarksDir string
+	trackRunners  map[string]TrackRunner
 }
 
 func NewExecutor(db *database.DB, langReg *languages.Registry, wlReg *workloads.Registry, benchmarksDir string) *Executor {
@@ -32,7 +38,13 @@ func NewExecutor(db *database.DB, langReg *languages.Registry, wlReg *workloads.
 		langRegistry:  langReg,
 		workloadReg:   wlReg,
 		benchmarksDir: benchmarksDir,
+		trackRunners:  make(map[string]TrackRunner),
 	}
+}
+
+// RegisterTrackRunner attaches a dedicated runner for a specific benchmark track (e.g. "lowlevel", "accelerator").
+func (e *Executor) RegisterTrackRunner(track string, runner TrackRunner) {
+	e.trackRunners[track] = runner
 }
 
 // ExecuteRun executes all language benchmarks for a given run.
@@ -40,6 +52,11 @@ func (e *Executor) ExecuteRun(ctx context.Context, runID string) error {
 	run, err := e.db.GetRun(ctx, runID)
 	if err != nil || run == nil {
 		return fmt.Errorf("run not found: %s", runID)
+	}
+
+	// Check if this run belongs to a registered track runner (low-level, accelerator)
+	if runner, ok := e.trackRunners[run.Track]; ok && runner != nil {
+		return runner.ExecuteRun(ctx, run)
 	}
 
 	workload, err := e.workloadReg.Get(run.WorkloadID)

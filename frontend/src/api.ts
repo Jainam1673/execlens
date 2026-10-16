@@ -5,6 +5,11 @@ import type {
   Run,
   RunDetail,
   ComparisonReport,
+  TrackInfo,
+  LowLevelWorkload,
+  CompilerInfo,
+  AcceleratorBackend,
+  AcceleratorWorkload,
 } from './types';
 
 const API_BASE = '/api/v1';
@@ -13,6 +18,13 @@ export async function fetchStats(): Promise<DashboardStats> {
   const res = await fetch(`${API_BASE}/stats`);
   if (!res.ok) throw new Error(`Failed to fetch stats: ${res.statusText}`);
   return res.json();
+}
+
+export async function fetchTracks(): Promise<TrackInfo[]> {
+  const res = await fetch(`${API_BASE}/tracks`);
+  if (!res.ok) throw new Error(`Failed to fetch tracks: ${res.statusText}`);
+  const data = await res.json();
+  return data.tracks || [];
 }
 
 export async function fetchLanguages(): Promise<RuntimeInfo[]> {
@@ -29,11 +41,32 @@ export async function fetchWorkloads(): Promise<WorkloadContract[]> {
   return data.workloads || [];
 }
 
-export async function fetchRuns(limit = 20, offset = 0, workloadId?: string, status?: string): Promise<{ runs: Run[]; total: number }> {
+export async function fetchLowLevelCatalog(): Promise<{ workloads: LowLevelWorkload[]; compilers: Record<string, CompilerInfo> }> {
+  const res = await fetch(`${API_BASE}/lowlevel/catalog`);
+  if (!res.ok) throw new Error(`Failed to fetch low-level catalog: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchAccelerators(): Promise<AcceleratorBackend[]> {
+  const res = await fetch(`${API_BASE}/accelerators`);
+  if (!res.ok) throw new Error(`Failed to fetch accelerators: ${res.statusText}`);
+  const data = await res.json();
+  return data.accelerators || [];
+}
+
+export async function fetchAcceleratorCatalog(): Promise<AcceleratorWorkload[]> {
+  const res = await fetch(`${API_BASE}/accelerators/catalog`);
+  if (!res.ok) throw new Error(`Failed to fetch accelerator catalog: ${res.statusText}`);
+  const data = await res.json();
+  return data.workloads || [];
+}
+
+export async function fetchRuns(limit = 20, offset = 0, track?: string, workloadId?: string, status?: string): Promise<{ runs: Run[]; total: number }> {
   const params = new URLSearchParams({
     limit: limit.toString(),
     offset: offset.toString(),
   });
+  if (track) params.append('track', track);
   if (workloadId) params.append('workload_id', workloadId);
   if (status) params.append('status', status);
 
@@ -52,6 +85,7 @@ export async function fetchRun(runId: string, baseline?: string): Promise<RunDet
 }
 
 export async function createRun(payload: {
+  track?: string;
   workload_id: string;
   languages: string[];
   workload_params?: Record<string, any>;

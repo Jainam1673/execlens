@@ -112,6 +112,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
+      {/* Multi-Track Performance Laboratory Navigation Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+        <div className="card" style={{ borderLeft: '4px solid #38bdf8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <Layers size={18} color="#38bdf8" />
+            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Programming Languages Track</h3>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            Measure algorithmic throughput across C++, Rust, Go, Java, Python, and Node.js with strict parity and Student's t 95% confidence intervals.
+          </p>
+          <button className="btn btn-secondary btn-sm" onClick={onOpenLaunch}>
+            Configure Languages Run &rarr;
+          </button>
+        </div>
+
+        <div className="card" style={{ borderLeft: '4px solid #fbbf24' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <Cpu size={18} color="#fbbf24" />
+            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Low-Level CPU & Compiler Lab</h3>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            Explore scalar vs AVX2/FMA vectorization unrolls, handwritten assembly, AoS vs SoA cache locality, and GCC vs Clang optimizations.
+          </p>
+          <button className="btn btn-secondary btn-sm" onClick={onOpenLaunch}>
+            Launch CPU Lab Run &rarr;
+          </button>
+        </div>
+
+        <div className="card" style={{ borderLeft: '4px solid #34d399' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <Activity size={18} color="#34d399" />
+            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>GPU & Accelerator Lab</h3>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            Microsecond CUDA event timing separating pure kernel execution from Host-to-Device and Device-to-Host PCIe bandwidth and CPU references.
+          </p>
+          <button className="btn btn-secondary btn-sm" onClick={onOpenLaunch}>
+            Launch GPU Benchmark &rarr;
+          </button>
+        </div>
+      </div>
+
       {/* Language Toolchain Probing Grid */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

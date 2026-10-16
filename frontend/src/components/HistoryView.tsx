@@ -16,6 +16,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 }) => {
   const [runs, setRuns] = useState<Run[]>([]);
   const [total, setTotal] = useState<number>(0);
+  const [trackFilter, setTrackFilter] = useState<string>('');
   const [workloadFilter, setWorkloadFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState<number>(0);
@@ -25,7 +26,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetchRuns(limit, page * limit, workloadFilter || undefined, statusFilter || undefined);
+      const res = await fetchRuns(limit, page * limit, trackFilter || undefined, workloadFilter || undefined, statusFilter || undefined);
       setRuns(res.runs);
       setTotal(res.total);
     } catch (err: any) {
@@ -37,7 +38,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [page, workloadFilter, statusFilter]);
+  }, [page, trackFilter, workloadFilter, statusFilter]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -58,6 +59,32 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
         {/* Filter Controls */}
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+              Filter Track
+            </label>
+            <select
+              value={trackFilter}
+              onChange={(e) => {
+                setTrackFilter(e.target.value);
+                setPage(0);
+              }}
+              style={{
+                padding: '0.4rem 0.8rem',
+                backgroundColor: 'var(--bg-muted)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)',
+                fontSize: '0.85rem',
+              }}
+            >
+              <option value="">All Tracks</option>
+              <option value="languages">Languages Track</option>
+              <option value="lowlevel">Low-Level CPU Lab</option>
+              <option value="accelerator">GPU Accelerator Lab</option>
+            </select>
+          </div>
+
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
               Filter Workload
@@ -131,6 +158,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 <thead>
                   <tr>
                     <th>Run ID</th>
+                    <th>Track</th>
                     <th>Workload</th>
                     <th>Status</th>
                     <th>Iterations</th>
@@ -145,6 +173,19 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     <tr key={r.id}>
                       <td>
                         <code>{r.id}</code>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            r.track === 'lowlevel'
+                              ? 'badge-warning'
+                              : r.track === 'accelerator'
+                              ? 'badge-primary'
+                              : 'badge-neutral'
+                          }`}
+                        >
+                          {r.track === 'lowlevel' ? 'Low-Level CPU' : r.track === 'accelerator' ? 'GPU Lab' : 'Languages'}
+                        </span>
                       </td>
                       <td>
                         <strong>{r.workload_id}</strong>

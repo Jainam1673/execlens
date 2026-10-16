@@ -29,7 +29,7 @@ smoke: build
 
 lint:
 	@echo "Linting Go code..."
-	go vet ./...
+	go vet ./internal/... ./cmd/... ./tests/...
 	@echo "Linting frontend code..."
 	npm --prefix frontend run lint
 

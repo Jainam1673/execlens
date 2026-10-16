@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/execlens/execlens/internal/database"
@@ -31,7 +32,7 @@ func setupTestServer(t *testing.T) (*Server, func()) {
 	executor := engine.NewExecutor(db, langReg, wlReg, benchmarksDir)
 	pool := jobs.NewWorkerPool(db, executor, 1)
 
-	server := NewServer(db, pool, langReg, wlReg, "")
+	server := NewServer(db, pool, langReg, wlReg, nil, "")
 	cleanup := func() {
 		_ = pool.Shutdown(context.Background())
 		_ = db.Close()
@@ -127,5 +128,52 @@ func TestCreateRunValidation(t *testing.T) {
 	server.Handler().ServeHTTP(w3, req3)
 	if w3.Code != http.StatusCreated {
 		t.Errorf("expected 201 for valid run, got %d (body: %s)", w3.Code, w3.Body.String())
+	}
+}
+
+func TestMultitrackEndpoints(t *testing.T) {
+	server, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	// 1. GET /api/v1/tracks
+	req := httptest.NewRequest("GET", "/api/v1/tracks", nil)
+	w := httptest.NewRecorder()
+	server.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /api/v1/tracks, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "languages") || !strings.Contains(w.Body.String(), "lowlevel") || !strings.Contains(w.Body.String(), "accelerator") {
+		t.Errorf("expected tracks in response, got %s", w.Body.String())
+	}
+
+	// 2. GET /api/v1/lowlevel/catalog
+	reqLL := httptest.NewRequest("GET", "/api/v1/lowlevel/catalog", nil)
+	wLL := httptest.NewRecorder()
+	server.Handler().ServeHTTP(wLL, reqLL)
+	if wLL.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /api/v1/lowlevel/catalog, got %d", wLL.Code)
+	}
+	if !strings.Contains(wLL.Body.String(), "lowlevel_reduction") {
+		t.Errorf("expected lowlevel_reduction in catalog, got %s", wLL.Body.String())
+	}
+
+	// 3. GET /api/v1/accelerators
+	reqAcc := httptest.NewRequest("GET", "/api/v1/accelerators", nil)
+	wAcc := httptest.NewRecorder()
+	server.Handler().ServeHTTP(wAcc, reqAcc)
+	if wAcc.Code != http.StatusOK {
+		t.Fatalf("expected 200 from /api/v1/accelerators, got %d", wAcc.Code)
+	}
+	if !strings.Contains(wAcc.Body.String(), "cuda") {
+		t.Errorf("expected cuda in accelerators list, got %s", wAcc.Body.String())
+	}
+
+	// 4. Create Low-Level Run
+	llPayload := `{"track": "lowlevel", "workload_id": "lowlevel_reduction", "languages": ["autovec", "simd_avx2"], "iterations": 2}`
+	reqCreate := httptest.NewRequest("POST", "/api/v1/runs", bytes.NewBufferString(llPayload))
+	wCreate := httptest.NewRecorder()
+	server.Handler().ServeHTTP(wCreate, reqCreate)
+	if wCreate.Code != http.StatusCreated {
+		t.Errorf("expected 201 for lowlevel run creation, got %d (body: %s)", wCreate.Code, wCreate.Body.String())
 	}
 }

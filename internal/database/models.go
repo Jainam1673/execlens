@@ -47,6 +47,7 @@ type SystemInfo struct {
 // Run represents a benchmark execution request and its state.
 type Run struct {
 	ID               string                 `json:"id"`
+	Track            string                 `json:"track"` // "languages", "lowlevel", "accelerator"
 	WorkloadID       string                 `json:"workload_id"`
 	WorkloadParams   map[string]interface{} `json:"workload_params"`
 	Iterations       int                    `json:"iterations"`
@@ -73,7 +74,7 @@ type RawSample struct {
 	CreatedAt           time.Time `json:"created_at"`
 }
 
-// LanguageExecution represents the execution outcome for a specific language in a run.
+// LanguageExecution represents the execution outcome for a specific variant/runtime in a run.
 type LanguageExecution struct {
 	ID               string                  `json:"id"`
 	RunID            string                  `json:"run_id"`
@@ -97,11 +98,35 @@ type LanguageExecution struct {
 	CompletedAt      *time.Time              `json:"completed_at,omitempty"`
 	Samples          []RawSample             `json:"samples,omitempty"`
 
+	// Low-level compiler & machine code metrics
+	CompilerName        string `json:"compiler_name,omitempty"`
+	CompilerFlags       string `json:"compiler_flags,omitempty"`
+	OptLevel            string `json:"opt_level,omitempty"`
+	TargetArch          string `json:"target_arch,omitempty"`
+	ExecutableSizeBytes int64  `json:"executable_size_bytes,omitempty"`
+	GeneratedAssembly   string `json:"generated_assembly,omitempty"`
+	CompilerRemarks     string `json:"compiler_remarks,omitempty"`
+
+	// GPU / Accelerator metrics
+	KernelDurationNs       int64   `json:"kernel_duration_ns,omitempty"`
+	KernelDurationMs       float64 `json:"kernel_duration_ms,omitempty"`
+	TransferH2DNs          int64   `json:"transfer_h2d_ns,omitempty"`
+	TransferH2DMs          float64 `json:"transfer_h2d_ms,omitempty"`
+	TransferD2HNs          int64   `json:"transfer_d2h_ns,omitempty"`
+	TransferD2HMs          float64 `json:"transfer_d2h_ms,omitempty"`
+	AllocDurationNs        int64   `json:"alloc_duration_ns,omitempty"`
+	AllocDurationMs        float64 `json:"alloc_duration_ms,omitempty"`
+	EffectiveBandwidthGBps float64 `json:"effective_bandwidth_gbps,omitempty"`
+	GFLOPS                 float64 `json:"gflops,omitempty"`
+	GPUDeviceName          string  `json:"gpu_device_name,omitempty"`
+	GPUComputeCapability   string  `json:"gpu_compute_capability,omitempty"`
+	GPUDriverVersion       string  `json:"gpu_driver_version,omitempty"`
+
 	// Derived relative metrics (computed on demand relative to chosen baseline)
-	Speedup         float64                    `json:"speedup,omitempty"`
-	MemoryRatio     float64                    `json:"memory_ratio,omitempty"`
-	Significance    metrics.SignificanceAssessment `json:"significance,omitempty"`
-	SignificanceNote string                    `json:"significance_note,omitempty"`
+	Speedup          float64                        `json:"speedup,omitempty"`
+	MemoryRatio      float64                        `json:"memory_ratio,omitempty"`
+	Significance     metrics.SignificanceAssessment `json:"significance,omitempty"`
+	SignificanceNote string                         `json:"significance_note,omitempty"`
 }
 
 // RunDetail contains a run and all its associated language executions.

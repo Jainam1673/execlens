@@ -25,10 +25,14 @@ func (d *DB) CreateRun(ctx context.Context, run *Run, languageIDs []string) erro
 	systemJSON := ToJSON(run.SystemInfo)
 	nowStr := run.CreatedAt.UTC().Format(time.RFC3339)
 
+	if run.Track == "" {
+		run.Track = "languages"
+	}
+
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO runs (id, workload_id, workload_params, iterations, warmup_iterations, execution_mode, status, created_at, system_info)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, run.ID, run.WorkloadID, paramsJSON, run.Iterations, run.WarmupIterations, run.ExecutionMode, run.Status, nowStr, systemJSON)
+		INSERT INTO runs (id, track, workload_id, workload_params, iterations, warmup_iterations, execution_mode, status, created_at, system_info)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, run.ID, run.Track, run.WorkloadID, paramsJSON, run.Iterations, run.WarmupIterations, run.ExecutionMode, run.Status, nowStr, systemJSON)
 	if err != nil {
 		return fmt.Errorf("failed to insert run: %w", err)
 	}
@@ -113,7 +117,23 @@ func (d *DB) UpdateLanguageExecution(ctx context.Context, exec *LanguageExecutio
 		    summary_json = ?,
 		    peak_memory_bytes = ?,
 		    error_message = ?,
-		    completed_at = ?
+		    completed_at = ?,
+		    compiler_name = ?,
+		    compiler_flags = ?,
+		    opt_level = ?,
+		    target_arch = ?,
+		    executable_size_bytes = ?,
+		    generated_assembly = ?,
+		    compiler_remarks = ?,
+		    kernel_duration_ns = ?,
+		    transfer_h2d_ns = ?,
+		    transfer_d2h_ns = ?,
+		    alloc_duration_ns = ?,
+		    effective_bandwidth_gbps = ?,
+		    gflops = ?,
+		    gpu_device_name = ?,
+		    gpu_compute_capability = ?,
+		    gpu_driver_version = ?
 		WHERE id = ?
 	`
 
@@ -132,6 +152,22 @@ func (d *DB) UpdateLanguageExecution(ctx context.Context, exec *LanguageExecutio
 		exec.PeakMemoryBytes,
 		exec.ErrorMessage,
 		completedStr,
+		exec.CompilerName,
+		exec.CompilerFlags,
+		exec.OptLevel,
+		exec.TargetArch,
+		exec.ExecutableSizeBytes,
+		exec.GeneratedAssembly,
+		exec.CompilerRemarks,
+		exec.KernelDurationNs,
+		exec.TransferH2DNs,
+		exec.TransferD2HNs,
+		exec.AllocDurationNs,
+		exec.EffectiveBandwidthGBps,
+		exec.GFLOPS,
+		exec.GPUDeviceName,
+		exec.GPUComputeCapability,
+		exec.GPUDriverVersion,
 		exec.ID,
 	)
 
@@ -167,22 +203,28 @@ func (d *DB) GetRun(ctx context.Context, runID string) (*Run, error) {
 	defer d.mu.RUnlock()
 
 	row := d.conn.QueryRowContext(ctx, `
-		SELECT id, workload_id, workload_params, iterations, warmup_iterations, execution_mode,
+		SELECT id, track, workload_id, workload_params, iterations, warmup_iterations, execution_mode,
 		       status, created_at, started_at, completed_at, error_message, system_info
 		FROM runs WHERE id = ?
 	`, runID)
 
 	var r Run
 	var paramsJSON, systemJSON, createdStr string
-	var startedStr, completedStr, errMsg sql.NullString
+	var trackStr, startedStr, completedStr, errMsg sql.NullString
 
-	err := row.Scan(&r.ID, &r.WorkloadID, &paramsJSON, &r.Iterations, &r.WarmupIterations, &r.ExecutionMode,
+	err := row.Scan(&r.ID, &trackStr, &r.WorkloadID, &paramsJSON, &r.Iterations, &r.WarmupIterations, &r.ExecutionMode,
 		&r.Status, &createdStr, &startedStr, &completedStr, &errMsg, &systemJSON)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get run: %w", err)
+	}
+
+	if trackStr.Valid && trackStr.String != "" {
+		r.Track = trackStr.String
+	} else {
+		r.Track = "languages"
 	}
 
 	r.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
@@ -218,7 +260,11 @@ func (d *DB) GetRunDetail(ctx context.Context, runID string, baselineLangID stri
 		SELECT id, run_id, language_id, status, toolchain_version, build_command,
 		       build_duration_ns, build_stdout, build_stderr, build_exit_code,
 		       validation_passed, validation_output, validation_expected,
-		       summary_json, peak_memory_bytes, error_message, created_at, completed_at
+		       summary_json, peak_memory_bytes, error_message, created_at, completed_at,
+		       compiler_name, compiler_flags, opt_level, target_arch,
+		       executable_size_bytes, generated_assembly, compiler_remarks,
+		       kernel_duration_ns, transfer_h2d_ns, transfer_d2h_ns, alloc_duration_ns,
+		       effective_bandwidth_gbps, gflops, gpu_device_name, gpu_compute_capability, gpu_driver_version
 		FROM language_executions
 		WHERE run_id = ?
 		ORDER BY language_id ASC
@@ -234,12 +280,18 @@ func (d *DB) GetRunDetail(ctx context.Context, runID string, baselineLangID stri
 		var createdStr string
 		var toolchain, buildCmd, bStdout, bStderr, valOut, valExp, summaryJSON, errMsg, compStr sql.NullString
 		var valPassed sql.NullInt64
+		var compName, compFlags, optLvl, tgtArch, genAsm, compRemarks sql.NullString
+		var gpuDev, gpuCC, gpuDrv sql.NullString
 
 		err := rows.Scan(
 			&e.ID, &e.RunID, &e.LanguageID, &e.Status, &toolchain, &buildCmd,
 			&e.BuildDurationNs, &bStdout, &bStderr, &e.BuildExitCode,
 			&valPassed, &valOut, &valExp,
 			&summaryJSON, &e.PeakMemoryBytes, &errMsg, &createdStr, &compStr,
+			&compName, &compFlags, &optLvl, &tgtArch,
+			&e.ExecutableSizeBytes, &genAsm, &compRemarks,
+			&e.KernelDurationNs, &e.TransferH2DNs, &e.TransferD2HNs, &e.AllocDurationNs,
+			&e.EffectiveBandwidthGBps, &e.GFLOPS, &gpuDev, &gpuCC, &gpuDrv,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan execution: %w", err)
@@ -276,8 +328,41 @@ func (d *DB) GetRunDetail(ctx context.Context, runID string, baselineLangID stri
 			e.ValidationPassed = &p
 		}
 
+		if compName.Valid {
+			e.CompilerName = compName.String
+		}
+		if compFlags.Valid {
+			e.CompilerFlags = compFlags.String
+		}
+		if optLvl.Valid {
+			e.OptLevel = optLvl.String
+		}
+		if tgtArch.Valid {
+			e.TargetArch = tgtArch.String
+		}
+		if genAsm.Valid {
+			e.GeneratedAssembly = genAsm.String
+		}
+		if compRemarks.Valid {
+			e.CompilerRemarks = compRemarks.String
+		}
+
+		if gpuDev.Valid {
+			e.GPUDeviceName = gpuDev.String
+		}
+		if gpuCC.Valid {
+			e.GPUComputeCapability = gpuCC.String
+		}
+		if gpuDrv.Valid {
+			e.GPUDriverVersion = gpuDrv.String
+		}
+
 		e.BuildDurationMs = float64(e.BuildDurationNs) / 1e6
 		e.PeakMemoryMB = float64(e.PeakMemoryBytes) / (1024 * 1024)
+		e.KernelDurationMs = float64(e.KernelDurationNs) / 1e6
+		e.TransferH2DMs = float64(e.TransferH2DNs) / 1e6
+		e.TransferD2HMs = float64(e.TransferD2HNs) / 1e6
+		e.AllocDurationMs = float64(e.AllocDurationNs) / 1e6
 
 		if summaryJSON.Valid && summaryJSON.String != "" {
 			var s metrics.Summary
@@ -352,13 +437,17 @@ func (d *DB) GetRunDetail(ctx context.Context, runID string, baselineLangID stri
 }
 
 // ListRuns returns paginated benchmark history with optional filters.
-func (d *DB) ListRuns(ctx context.Context, limit, offset int, workloadID string, status string) ([]Run, int, error) {
+func (d *DB) ListRuns(ctx context.Context, limit, offset int, track string, workloadID string, status string) ([]Run, int, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	var whereClauses []string
 	var args []interface{}
 
+	if track != "" {
+		whereClauses = append(whereClauses, "track = ?")
+		args = append(args, track)
+	}
 	if workloadID != "" {
 		whereClauses = append(whereClauses, "workload_id = ?")
 		args = append(args, workloadID)
@@ -384,7 +473,7 @@ func (d *DB) ListRuns(ctx context.Context, limit, offset int, workloadID string,
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, workload_id, workload_params, iterations, warmup_iterations, execution_mode,
+		SELECT id, track, workload_id, workload_params, iterations, warmup_iterations, execution_mode,
 		       status, created_at, started_at, completed_at, error_message, system_info
 		FROM runs
 		%s
@@ -403,11 +492,17 @@ func (d *DB) ListRuns(ctx context.Context, limit, offset int, workloadID string,
 	for rows.Next() {
 		var r Run
 		var paramsJSON, systemJSON, createdStr string
-		var startedStr, completedStr, errMsg sql.NullString
+		var trackStr, startedStr, completedStr, errMsg sql.NullString
 
-		if err := rows.Scan(&r.ID, &r.WorkloadID, &paramsJSON, &r.Iterations, &r.WarmupIterations, &r.ExecutionMode,
+		if err := rows.Scan(&r.ID, &trackStr, &r.WorkloadID, &paramsJSON, &r.Iterations, &r.WarmupIterations, &r.ExecutionMode,
 			&r.Status, &createdStr, &startedStr, &completedStr, &errMsg, &systemJSON); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan run: %w", err)
+		}
+
+		if trackStr.Valid && trackStr.String != "" {
+			r.Track = trackStr.String
+		} else {
+			r.Track = "languages"
 		}
 
 		r.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)

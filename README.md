@@ -8,9 +8,13 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org)
 
-**ExecLens** is an open-source systems performance benchmarking platform engineered to compare equivalent computational workloads across multiple programming languages under strictly controlled, transparent, and reproducible conditions.
+**ExecLens** is an open-source systems performance benchmarking platform engineered to compare equivalent computational workloads across programming languages, CPU micro-architectural configurations, and GPU accelerators under strictly controlled, transparent, and reproducible conditions.
 
-ExecLens rejects simplistic, misleading claims that one programming language is universally the fastest. Instead, it provides a high-precision measurement engine, an interactive visual explorer, and statistical analysis to uncover *why* execution times, memory footprints, and scaling characteristics differ.
+ExecLens rejects simplistic, misleading claims that one programming language or paradigm is universally the fastest. Instead, it provides a high-precision measurement engine, an interactive visual explorer, and statistical analysis across three specialized performance engineering tracks:
+
+1. **Languages Track**: Fair comparisons across 6 runtimes (C++, Rust, Go, Java, Python, Node.js) across 6 deterministic parity workloads.
+2. **Low-Level Code & Compiler Explorer Lab**: Micro-architectural studies (scalar vs compiler auto-vectorization vs explicit AVX2 intrinsics vs inline x86_64 assembly vs OpenMP; AoS vs SoA layouts; pointer chasing vs contiguous access; memory copy techniques) and compiler comparisons (GCC vs Clang, `-O0` to `-Ofast`, Intel-syntax assembly generation, and vectorization diagnostic remarks).
+3. **CUDA & GPU Compute Lab**: Accelerated execution with device telemetry, pure kernel duration (`cudaEvent_t`), PCIe host-to-device and device-to-host transfers, allocation overhead, effective bandwidth (GB/s), GFLOPS, and CPU reference baselines. Truthful detection of CUDA, OpenCL, SYCL, and ROCm/HIP.
 
 ---
 
@@ -32,13 +36,20 @@ flowchart TD
         Pool["Bounded Worker Pool (internal/jobs)"]
         Engine["Measurement Engine (internal/engine)"]
         Reconcile["Crash Recovery & Reconciler"]
+        TrackRunner["TrackRunner Registry"]
     end
 
-    subgraph Domain ["Domain Catalogs & Registry"]
-        LangReg["Language Registry (internal/languages)"]
-        Adapters["6 Language Adapters (C++, Rust, Go, Java, Python, Node.js)"]
-        WorkloadReg["Workload Catalog (internal/workloads)"]
-        Contracts["Workload Contracts (Sieve, Sort, Hashmap, JSON, Matrix, I/O)"]
+    subgraph Tracks ["Multi-Track Execution Subsystems"]
+        LangReg["Languages Track (internal/languages)"]
+        LowLevel["Low-Level & Compiler Lab (internal/lowlevel)"]
+        AccelLab["GPU & Accelerator Lab (internal/accelerators)"]
+    end
+
+    subgraph Benchmarks ["Benchmark Workloads & Artifacts"]
+        LangWorkloads["Language Parity (Sieve, Sort, Hashmap, JSON, Matrix, I/O)"]
+        LowLevelWorkloads["Micro-Architectural (Reduction, Dot, AoS/SoA, PtrChase, Memcpy)"]
+        CUDAWorkloads["GPU Kernels (VecAdd, Reduction, MatMul, Stencil, Histogram, Bandwidth)"]
+        AsmViewer["Generated Intel Assembly & Vectorization Remarks"]
     end
 
     subgraph System ["Operating System & Hardware"]
@@ -46,11 +57,12 @@ flowchart TD
         KernelUsage["Linux Kernel getrusage (MaxRSS)"]
         MonoClock["Monotonic Clock (CLOCK_MONOTONIC)"]
         Subprocess["Isolated Child Processes"]
+        HardwareProbing["GPU / Accelerator Hardware Prober"]
     end
 
     subgraph Storage ["Persistence (internal/database)"]
         SQLite["SQLite 3 (WAL mode)"]
-        Migrations["Versioned SQL Migrations"]
+        Migrations["Versioned SQL Migrations (0001, 0002_multitrack)"]
     end
 
     CLI --> Engine
@@ -58,14 +70,19 @@ flowchart TD
     Router --> Handlers
     Handlers --> Pool
     Pool --> Engine
-    Engine --> LangReg
-    Engine --> WorkloadReg
-    LangReg --> Adapters
-    WorkloadReg --> Contracts
+    Engine --> TrackRunner
+    TrackRunner --> LangReg
+    TrackRunner --> LowLevel
+    TrackRunner --> AccelLab
+    LangReg --> LangWorkloads
+    LowLevel --> LowLevelWorkloads
+    LowLevel --> AsmViewer
+    AccelLab --> CUDAWorkloads
     Engine --> Proc
     Proc --> Subprocess
     Proc --> KernelUsage
     Proc --> MonoClock
+    AccelLab --> HardwareProbing
     Handlers --> SQLite
     Engine --> SQLite
     Reconcile --> SQLite
@@ -76,39 +93,61 @@ flowchart TD
 
 ## Key Features
 
-- **6 Supported Programming Languages**:
-  1. **C++**: Native compiled execution via GCC/G++ (`-O3 -std=c++20`).
-  2. **Rust**: Native compiled execution via `rustc` (`-C opt-level=3`).
-  3. **Go**: Statically compiled binary via `go build -trimpath`.
-  4. **Java**: JVM execution via OpenJDK (`-XX:+TieredCompilation`) with warm-up.
-  5. **Python**: Interpreter execution via CPython (`python3 -u`).
-  6. **JavaScript**: V8 runtime execution via Node.js with warm-up.
-- **6 Deterministic Workloads**:
-  1. **Sieve of Eratosthenes**: Prime number calculation measuring tight loop boolean indexing and CPU branch prediction.
-  2. **Integer Sorting**: Deterministic 32-bit pseudo-random array sorting with both identical algorithmic Quicksort and runtime standard library modes.
-  3. **Hash Map Operations**: High-throughput key-value insertions, lookups, and collision handling.
-  4. **JSON Processing**: Decoding, filtering, and field aggregation of structured synthetic documents.
-  5. **Matrix Multiplication**: Contiguous row-major double-precision floating point matrix multiplication.
-  6. **File Streaming I/O**: Buffered 64KB file read operations coupled with SHA-256 cryptographic digest calculation.
-- **Measurement Engine**:
-  - Independent tracking of compilation time vs steady-state execution time.
-  - Correctness validation prior to accepting timing measurements.
-  - OS-level peak resident set size (MaxRSS) memory tracking.
-  - Descriptive statistics: Median, Mean, Sample Standard Deviation, CV%, IQR, Throughput, and Student's t 95% Confidence Intervals.
-- **Process Isolation & Security**:
-  - Fixed executable paths with explicit argument arrays (no shell string interpolation).
-  - Isolated process groups (`setpgid`) with automatic group killing (`SIGKILL`) on timeout or user cancellation.
-  - Bounded concurrency to eliminate core contention and cache thrashing.
-  - Sanitized environment variables preventing credential leakage.
-- **Interactive Web Dashboard**:
-  - React 19 + TypeScript + Vite single-page application.
-  - Interactive Recharts bar charts for execution time, relative speedup, peak memory, and throughput.
-  - Dynamic baseline selection for instant speedup recalculation.
-  - Side-by-side run comparison with compatibility warnings.
-  - Markdown report export and downloadable JSON/CSV datasets.
-  - Dark and Light mode themes.
-- **Unified CLI Tool (`execlens`)**:
-  - Full CLI support for server execution, ad-hoc benchmark runs, runtime inspection, and data exporting.
+### 1. Multi-Track Performance Engineering Platform
+- **Track 1: Programming Languages Track**
+  - **6 Supported Runtimes**: C++ (GCC `-O3`), Rust (`rustc -C opt-level=3`), Go (`go build`), Java (OpenJDK HotSpot JIT), Python (CPython 3), JavaScript (Node.js V8).
+  - **6 Deterministic Parity Workloads**: Sieve of Eratosthenes, Integer Sorting (Quicksort vs stdlib), Hash Map operations, JSON processing, Matrix multiplication, File streaming I/O with SHA-256 digest.
+- **Track 2: Low-Level Code & Compiler Explorer Lab**
+  - **Micro-Architectural Variants**:
+    - Scalar baseline vs compiler auto-vectorization (`-O3 -mavx2 -mfma`).
+    - Explicit SIMD intrinsics (AVX2 / FMA `_mm256_*`).
+    - Inline x86_64 assembly (`vaddps`, `vmulps`, etc.).
+    - Multi-threaded OpenMP parallel loops.
+    - Array of Structures (AoS) vs Structure of Arrays (SoA) memory layouts.
+    - Contiguous array streaming vs pointer-chasing cycles (prefetcher-defeating).
+    - Memory copy mechanisms: glibc `memcpy` vs scalar byte copy vs unrolled 64-bit copy vs 32-byte aligned AVX2 non-temporal streaming stores (`_mm256_stream_si256`).
+  - **Compiler Explorer**:
+    - GCC (`g++`) vs Clang (`clang++`) side-by-side comparison on identical C++ source.
+    - Optimization levels: `-O0`, `-O1`, `-O2`, `-O3`, `-Ofast`.
+    - Automated Intel-syntax assembly generation (`-S -masm=intel`).
+    - Compiler vectorization remark extraction (`-fopt-info-vec-optimized` for GCC, `-Rpass=loop-vectorize` for Clang).
+    - Executable binary size tracking and comparison.
+- **Track 3: CUDA & GPU Compute Lab**
+  - **6 Dedicated CUDA Workloads**:
+    - Vector Addition & SAXPY.
+    - Parallel Reduction (shared memory tree reduction & warp shuffle unrolling).
+    - Matrix Multiplication (naïve global memory vs $16 \times 16$ tiled shared memory vs cache-blocked CPU reference).
+    - 1D Convolution / Stencil computation with shared memory halo caching.
+    - 256-bin Histogram with shared memory atomic updates.
+    - PCIe Memory Bandwidth: Pageable host memory vs Pinned host memory (`cudaHostAlloc`).
+  - **Hardware & Telemetry Tracking**: GPU model, Compute Capability, Driver and Toolkit versions, Grid/Block dimensions, Effective Bandwidth (GB/s), and GFLOPS.
+  - **Honest Hardware Detection**: Probing registry for CUDA, OpenCL, SYCL, and ROCm/HIP. Truthful diagnostics on toolchain/device capability mismatches (never fabricates GPU numbers or silently substitutes CPU).
+
+### 2. Measurement Engine & Rigor
+- Independent tracking of compilation time vs steady-state execution time.
+- Correctness validation prior to accepting timing measurements.
+- OS-level peak resident set size (MaxRSS) memory tracking.
+- Complete descriptive statistics: Median, Mean, Sample Standard Deviation, CV%, IQR, Throughput, and Student's t 95% Confidence Intervals.
+- Fine-grained GPU execution breakdown: Allocation, Host-to-Device transfer, pure kernel duration (`cudaEvent_t`), Device-to-Host transfer, and end-to-end wall-clock time.
+
+### 3. Process Isolation & Security
+- Fixed executable paths with explicit argument arrays (no shell string interpolation).
+- Isolated process groups (`setpgid`) with automatic group killing (`SIGKILL`) on timeout or user cancellation.
+- Bounded concurrency to eliminate core contention and cache thrashing.
+- Sanitized environment variables preventing credential leakage.
+
+### 4. Interactive Web Dashboard
+- React 19 + TypeScript + Vite single-page application.
+- Multi-track launch modal supporting Languages, Low-Level CPU, and GPU tracks with live variant selection and compiler choices.
+- Interactive Recharts bar charts for execution time, relative speedup, peak memory, throughput, and GPU bandwidth/GFLOPS.
+- Dynamic baseline selection for instant speedup recalculation.
+- Assembly & Optimization Remarks visual inspector with copy and syntax display.
+- Side-by-side run comparison with compatibility warnings.
+- Markdown report export and downloadable JSON/CSV datasets.
+- Dark and Light mode themes.
+
+### 5. Unified CLI Tool (`execlens`)
+- Comprehensive CLI commands for server execution, ad-hoc multi-language runs, low-level CPU experiments, CUDA executions, and accelerator discovery.
 
 ---
 
@@ -157,16 +196,37 @@ Open your browser to `http://localhost:8080`. The embedded web dashboard will lo
 You can also run benchmarks directly from the command line without launching the server:
 
 ```bash
-# Run Sieve of Eratosthenes across all available languages
+# Track 1: Run cross-language benchmark (Sieve across all available languages)
 ./execlens run --workload=sieve --languages=cpp,rust,go,java,python,javascript --iterations=5 --warmup=2
 
-# Run integer sorting benchmark comparing Quicksort implementations
+# Track 1: Run integer sorting benchmark comparing Quicksort implementations
 ./execlens run --workload=sort --languages=cpp,rust,go,python,javascript,java --iterations=3 --mode=quicksort
 
-# Inspect host runtime availability
+# Track 2: Run CPU Low-Level & Compiler Lab (scalar vs autovec vs SIMD AVX2 vs OpenMP vs inline asm)
+./execlens lowlevel --workload=lowlevel_reduction --compiler=gcc --opt=O3 --variants=scalar,autovec,simd_avx2,openmp,asm
+
+# Track 2: Compare memory layout performance (Array of Structures vs Structure of Arrays)
+./execlens lowlevel --workload=lowlevel_layout --variants=aos,soa --compiler=clang --opt=O3
+
+# Track 2: Compare memory copying mechanisms (glibc memcpy vs scalar vs unrolled vs AVX2 non-temporal streaming)
+./execlens lowlevel --workload=lowlevel_memcpy --variants=memcpy,scalar,unroll64,avx2_stream
+
+# Track 3: Run CUDA GPU benchmark with CPU reference baseline
+./execlens cuda --workload=cuda_vec_add_saxpy --size=16777216
+
+# Track 3: Run GPU matrix multiplication comparing naive global memory vs 16x16 tiled shared memory
+./execlens cuda --workload=cuda_matrix_mul --dim=1024
+
+# Track 3: Benchmark PCIe transfer bandwidth (Pageable vs Pinned host memory)
+./execlens cuda --workload=cuda_bandwidth_transfer --size=67108864
+
+# Inspect detected GPU and accelerator hardware backends (CUDA, OpenCL, SYCL, HIP)
+./execlens accelerators
+
+# Inspect host language runtime availability
 ./execlens languages
 
-# List available workloads and parameters
+# List available cross-language workloads and parameters
 ./execlens workloads
 ```
 
@@ -202,12 +262,16 @@ ExecLens exposes a versioned REST API (`/api/v1`):
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | Service health status and timestamp. |
-| `GET` | `/api/v1/stats` | Dashboard summary counters and active runtimes. |
+| `GET` | `/api/v1/stats` | Dashboard summary counters, active runtimes, and track stats. |
+| `GET` | `/api/v1/tracks` | Multi-track overview with catalog and hardware status. |
 | `GET` | `/api/v1/languages` | Supported languages and detected host toolchain versions. |
-| `GET` | `/api/v1/workloads` | Catalog of benchmark workloads, parameters, and caveats. |
-| `GET` | `/api/v1/runs` | Paginated benchmark history (`?limit=20&offset=0&status=...`). |
-| `POST` | `/api/v1/runs` | Validate and create a new benchmark run. |
-| `GET` | `/api/v1/runs/{id}` | Detailed run metrics and executions (`?baseline=cpp`). |
+| `GET` | `/api/v1/workloads` | Catalog of cross-language benchmark workloads, parameters, and caveats. |
+| `GET` | `/api/v1/lowlevel/catalog` | Catalog of CPU low-level workloads, variants, and compilers. |
+| `GET` | `/api/v1/accelerators` | Probed accelerator devices (CUDA, OpenCL, SYCL, HIP) and diagnostics. |
+| `GET` | `/api/v1/accelerators/catalog` | Catalog of GPU accelerator workloads and telemetry requirements. |
+| `GET` | `/api/v1/runs` | Paginated benchmark history (`?limit=20&offset=0&track=...&status=...`). |
+| `POST` | `/api/v1/runs` | Validate and create a new benchmark run (Languages, Low-Level, or GPU). |
+| `GET` | `/api/v1/runs/{id}` | Detailed run metrics, executions, compiler assembly, and GPU breakdowns. |
 | `POST` | `/api/v1/runs/{id}/cancel` | Cancel an active benchmark job. |
 | `GET` | `/api/v1/runs/{id}/export` | Export run results in JSON or CSV (`?format=json\|csv`). |
 | `GET` | `/api/v1/runs/{id}/report` | Retrieve formatted Markdown report. |

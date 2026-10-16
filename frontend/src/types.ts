@@ -92,10 +92,35 @@ export interface LanguageExecution {
   memory_ratio?: number;
   significance?: SignificanceAssessment;
   significance_note?: string;
+
+  // Low-level compiler & machine code metrics
+  compiler_name?: string;
+  compiler_flags?: string;
+  opt_level?: string;
+  target_arch?: string;
+  executable_size_bytes?: number;
+  generated_assembly?: string;
+  compiler_remarks?: string;
+
+  // GPU & Accelerator breakdown metrics
+  kernel_duration_ns?: number;
+  kernel_duration_ms?: number;
+  transfer_h2d_ns?: number;
+  transfer_h2d_ms?: number;
+  transfer_d2h_ns?: number;
+  transfer_d2h_ms?: number;
+  alloc_duration_ns?: number;
+  alloc_duration_ms?: number;
+  effective_bandwidth_gbps?: number;
+  gflops?: number;
+  gpu_device_name?: string;
+  gpu_compute_capability?: string;
+  gpu_driver_version?: string;
 }
 
 export interface Run {
   id: string;
+  track?: string; // "languages" | "lowlevel" | "accelerator"
   workload_id: string;
   workload_params: Record<string, any>;
   iterations: number;
@@ -107,6 +132,62 @@ export interface Run {
   completed_at?: string;
   error_message?: string;
   system_info: SystemInfo;
+}
+
+export interface TrackInfo {
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  is_available: boolean;
+}
+
+export interface LowLevelVariant {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface LowLevelWorkload {
+  id: string;
+  name: string;
+  description: string;
+  source_file: string;
+  variants: LowLevelVariant[];
+  default_size: number;
+  unit_name: string;
+}
+
+export interface CompilerInfo {
+  name: string;
+  executable: string;
+  is_available: boolean;
+  version?: string;
+  path?: string;
+}
+
+export interface AcceleratorBackend {
+  id: string;
+  display_name: string;
+  is_available: boolean;
+  toolkit_version?: string;
+  driver_version?: string;
+  device_name?: string;
+  compute_capability?: string;
+  missing_reason?: string;
+  compiler_path?: string;
+}
+
+export interface AcceleratorWorkload {
+  id: string;
+  name: string;
+  description: string;
+  source_file: string;
+  supported_backends: string[];
+  default_size: number;
+  unit_name: string;
+  has_cpu_reference: boolean;
+  measurement_metrics: string[];
 }
 
 export interface RunDetail extends Run {
