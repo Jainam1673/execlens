@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 180" width="820" height="180">
+		<rect width="820" height="180" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
+		<text x="24" y="32" font-family="system-ui, sans-serif" font-size="15" font-weight="700" fill="#f8fafc">Cuda Vec Add Saxpy Execution Time</text>
+		<text x="24" y="52" font-family="system-ui, sans-serif" font-size="11" fill="#94a3b8">No completed execution measurements available.</text>
+		<text x="410" y="110" font-family="system-ui, sans-serif" font-size="13" font-weight="500" fill="#64748b" text-anchor="middle">No compatible observations recorded.</text>
+	</svg>

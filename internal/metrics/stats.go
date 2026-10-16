@@ -234,11 +234,36 @@ func AssessDifference(baseline, candidate Summary, practicalThresholdPercent flo
 		return AssessmentInconclusive, "Sample size too small (< 2 observations) to assess statistical significance."
 	}
 
-	speedup := CalculateSpeedup(baseline.MedianNs, candidate.MedianNs)
-	percentDiff := math.Abs((candidate.MedianNs-baseline.MedianNs)/baseline.MedianNs) * 100.0
+	baseVal := baseline.MedianNs
+	candVal := candidate.MedianNs
+	if baseVal <= 0 {
+		baseVal = baseline.MedianMs * 1e6
+	}
+	if candVal <= 0 {
+		candVal = candidate.MedianMs * 1e6
+	}
+	if baseVal <= 0 {
+		return AssessmentInconclusive, "Baseline has zero or invalid duration."
+	}
+
+	speedup := CalculateSpeedup(baseVal, candVal)
+	percentDiff := math.Abs((candVal-baseVal)/baseVal) * 100.0
 
 	// Check for overlap in 95% Confidence Intervals
-	intervalsOverlap := (baseline.CI95LowerNs <= candidate.CI95UpperNs) && (candidate.CI95LowerNs <= baseline.CI95UpperNs)
+	baseLower := baseline.CI95LowerNs
+	baseUpper := baseline.CI95UpperNs
+	candLower := candidate.CI95LowerNs
+	candUpper := candidate.CI95UpperNs
+	if baseLower <= 0 && baseUpper <= 0 {
+		baseLower = baseline.CI95LowerMs * 1e6
+		baseUpper = baseline.CI95UpperMs * 1e6
+	}
+	if candLower <= 0 && candUpper <= 0 {
+		candLower = candidate.CI95LowerMs * 1e6
+		candUpper = candidate.CI95UpperMs * 1e6
+	}
+
+	intervalsOverlap := (baseLower <= candUpper) && (candLower <= baseUpper)
 
 	if intervalsOverlap {
 		if percentDiff < practicalThresholdPercent {

@@ -1,0 +1,56 @@
+{
+  "report_id": "rep_20261016_1cdf36a0",
+  "generated_at": "2026-10-16T22:28:14.08716837Z",
+  "generator_version": "1.0.0",
+  "environment": {
+    "os": "linux",
+    "arch": "amd64",
+    "cpu_model": "Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz",
+    "logical_cpus": 8,
+    "total_memory_bytes": 8160460800,
+    "hostname": "omarchy"
+  },
+  "total_configurations": 22,
+  "successful_executions": 21,
+  "failed_executions": 0,
+  "skipped_executions": 1,
+  "validation_failures": 0,
+  "inconclusive_count": 14,
+  "statistically_significant_count": 12,
+  "workloads_covered": [
+    "cuda_vec_add_saxpy",
+    "lowlevel_memcpy",
+    "lowlevel_reduction",
+    "sieve",
+    "sort"
+  ],
+  "languages_tested": [
+    "asm",
+    "autovec",
+    "avx2_stream",
+    "cpp",
+    "cuda",
+    "go",
+    "java",
+    "javascript",
+    "memcpy",
+    "openmp",
+    "python",
+    "rust",
+    "scalar",
+    "simd_avx2",
+    "unroll64"
+  ],
+  "tracks_covered": [
+    "accelerator",
+    "languages",
+    "lowlevel"
+  ],
+  "run_ids": [
+    "run_366e5aee7600",
+    "run_72b0d316cee0",
+    "run_7e7098741bd1",
+    "run_95feffe4b617",
+    "run_c42edac4f6f8"
+  ]
+}

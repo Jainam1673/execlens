@@ -91,9 +91,9 @@ int main(int argc, char* argv[]) {
         src[i] = (uint8_t)(i & 0xFF);
     }
 
-    if (variant == "libc_memcpy") {
+    if (variant == "libc_memcpy" || variant == "memcpy") {
         copy_libc(dst, src, bytes);
-    } else if (variant == "scalar_loop") {
+    } else if (variant == "scalar_loop" || variant == "scalar") {
         copy_scalar(dst, src, bytes);
     } else if (variant == "unroll64") {
         size_t count64 = bytes / 8;
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
         if (rem > 0) {
             std::memcpy(dst + count64 * 8, src + count64 * 8, rem);
         }
-    } else if (variant == "simd_streaming") {
+    } else if (variant == "simd_streaming" || variant == "avx2_stream") {
         copy_simd_streaming(dst, src, bytes);
     } else {
         std::cerr << "Unknown variant: " << variant << std::endl;

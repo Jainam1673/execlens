@@ -144,6 +144,12 @@ if echo "$SPA_RES" | grep -q "<html" || echo "$SPA_RES" | grep -q "vite"; then
     echo "✅ Frontend dashboard served successfully."
 fi
 
+echo "10. Verifying automated report generation and audit..."
+SMOKE_REPORT_DIR="${TEMP_DIR}/smoke_report"
+./execlens report-gen --db="${DB_PATH}" --output="${SMOKE_REPORT_DIR}" --baseline=go --update-readme=false
+./execlens report-verify --dir="${SMOKE_REPORT_DIR}/latest" --readme=""
+echo "✅ Automated report generation and audit passed."
+
 echo "=========================================================="
 echo "  🎉 Smoke Test Passed: ExecLens is fully operational!   "
 echo "=========================================================="

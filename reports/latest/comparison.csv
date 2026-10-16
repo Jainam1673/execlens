@@ -1,0 +1,24 @@
+# ExecLens Benchmark Consolidated Comparison Export
+Workload,Track,Language,Status,Median_ms,Mean_ms,CI95_Lower_ms,CI95_Upper_ms,StdDev_ms,CV_percent,Peak_Memory_MB,Throughput_ops_sec,Speedup_vs_Baseline,Toolchain
+cuda_vec_add_saxpy,accelerator,cuda,SKIPPED,N/A,N/A,N/A,N/A,N/A,N/A,0.00,N/A,N/A,
+lowlevel_memcpy,lowlevel,avx2_stream,COMPLETED,95.494,94.806,87.810,101.802,2.816,2.97,126.25,670201111.9,1.00,
+lowlevel_memcpy,lowlevel,memcpy,COMPLETED,95.066,93.942,87.819,100.065,2.465,2.62,126.26,673213244.7,1.00,
+lowlevel_memcpy,lowlevel,scalar,COMPLETED,118.558,117.760,88.313,147.208,11.853,10.07,126.24,539820955.6,0.81,
+lowlevel_memcpy,lowlevel,unroll64,COMPLETED,110.417,111.370,103.524,119.215,3.158,2.84,126.23,579618823.5,0.86,
+lowlevel_reduction,lowlevel,asm,COMPLETED,60.167,58.429,43.562,73.295,5.984,10.24,80.57,166205203.5,1.00,
+lowlevel_reduction,lowlevel,autovec,COMPLETED,44.045,44.086,43.608,44.564,0.192,0.44,80.57,227038702.0,1.37,
+lowlevel_reduction,lowlevel,openmp,COMPLETED,54.678,55.961,39.095,72.827,6.789,12.13,80.61,182887334.5,1.10,
+lowlevel_reduction,lowlevel,scalar,COMPLETED,63.734,63.566,61.201,65.931,0.952,1.50,80.57,156903003.3,0.94,
+lowlevel_reduction,lowlevel,simd_avx2,COMPLETED,37.096,39.903,25.850,53.956,5.657,14.18,80.59,269567326.1,1.62,
+sort,languages,cpp,COMPLETED,24.399,24.527,22.631,26.424,0.763,3.11,16.93,8196948.4,1.00,g++ (GCC) 16.2.1 20260810
+sort,languages,go,COMPLETED,22.699,22.437,18.724,26.150,1.495,6.66,17.05,8811140.2,1.07,go version go1.27.1 linux/amd64
+sort,languages,java,COMPLETED,191.027,245.467,0.000,532.149,115.396,47.01,49.46,1046974.2,0.13,javac 27
+sort,languages,javascript,COMPLETED,121.066,137.618,64.691,210.544,29.354,21.33,62.30,1651986.3,0.20,v26.10.0
+sort,languages,python,COMPLETED,847.850,972.697,402.349,1543.045,229.577,23.60,23.24,235890.7,0.03,Python 3.14.8
+sort,languages,rust,COMPLETED,20.421,20.832,18.935,22.729,0.764,3.67,20.32,9793639.2,1.19,rustc 1.97.1 (8bab26f4f 2026-07-14)
+sieve,languages,cpp,COMPLETED,28.934,28.831,26.583,31.079,1.811,6.28,21.74,172808428.0,1.00,g++ (GCC) 16.2.1 20260810
+sieve,languages,go,COMPLETED,28.000,29.817,23.817,35.817,4.833,16.21,26.71,178571957.9,1.03,go version go1.27.1 linux/amd64
+sieve,languages,java,COMPLETED,164.655,158.811,142.159,175.463,13.413,8.45,50.29,30366540.2,0.18,javac 27
+sieve,languages,javascript,COMPLETED,136.406,146.186,88.642,203.730,46.351,31.71,62.33,36655284.2,0.21,v26.10.0
+sieve,languages,python,COMPLETED,1265.443,1274.659,1197.953,1351.366,61.787,4.85,26.95,3951187.0,0.02,Python 3.14.8
+sieve,languages,rust,COMPLETED,41.376,42.961,37.830,48.091,4.133,9.62,26.95,120841774.1,0.70,rustc 1.97.1 (8bab26f4f 2026-07-14)

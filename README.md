@@ -151,6 +151,120 @@ flowchart TD
 
 ---
 
+<!-- EXECLENS_REPORT_START -->
+## Latest Verified Benchmark Report
+
+> **Report ID**: `rep_20261016_1cdf36a0` | **Date**: 2026-10-16 22:28 UTC | **Host**: `Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz` (linux, 8 vCPUs) | **Generator**: `v1.0.0`
+
+ExecLens tested **22 configurations** across **5 workloads** and **15 runtimes** with 21 successful executions (1 skipped/unavailable, 14 inconclusive due to environmental variance).
+
+### Executive Visual Summary
+
+![Benchmark Overview](reports/latest/charts/overview.svg)
+
+![Performance Heatmap](reports/latest/charts/workload-heatmap.svg)
+
+### Key Automated Performance Findings
+
+- **Lowlevel Memcpy Lowest Observed Median Runtime: memcpy**: memcpy recorded the lowest observed median execution time of 95.07 ms across 3 iterations.
+- **Lowlevel Memcpy Memory Efficiency: unroll64 Used 126.2 MB Peak RSS**: unroll64 demonstrated the lowest physical memory footprint (126.2 MB peak RSS) compared to memcpy (126.3 MB peak RSS, 1.0x difference).
+- **Lowlevel Reduction Lowest Observed Median Runtime: simd_avx2**: simd_avx2 recorded the lowest observed median execution time of 37.10 ms across 3 iterations.
+- **Lowlevel Reduction: simd_avx2 Observed 1.72x Faster than scalar**: simd_avx2 achieved median 37.10 ms vs scalar baseline 63.73 ms (1.72x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (1.72x faster, 41.8% difference).
+- **Lowlevel Reduction: autovec Observed 1.45x Faster than scalar**: autovec achieved median 44.05 ms vs scalar baseline 63.73 ms (1.45x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (1.45x faster, 30.9% difference).
+- **Lowlevel Reduction Memory Efficiency: autovec Used 80.6 MB Peak RSS**: autovec demonstrated the lowest physical memory footprint (80.6 MB peak RSS) compared to openmp (80.6 MB peak RSS, 1.0x difference).
+
+### Workload-by-Workload Results
+
+<details>
+<summary><strong>Cuda Vec Add Saxpy (cuda_vec_add_saxpy) — View Benchmark Findings &amp; Visuals</strong></summary>
+
+![Cuda Vec Add Saxpy Chart](reports/latest/charts/cuda_vec_add_saxpy.svg)
+
+| Implementation | Status | Median Time | 95% Confidence Interval | Peak Memory | Throughput | Relative Speedup |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **cuda** | SKIPPED | N/A | N/A | 0.0 MB | N/A | N/A |
+
+</details>
+
+<details>
+<summary><strong>Lowlevel Memcpy (lowlevel_memcpy) — View Benchmark Findings &amp; Visuals</strong></summary>
+
+![Lowlevel Memcpy Chart](reports/latest/charts/lowlevel_memcpy.svg)
+
+| Implementation | Status | Median Time | 95% Confidence Interval | Peak Memory | Throughput | Relative Speedup |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **avx2_stream** | COMPLETED | 95.49 ms | [87.81, 101.80] ms | 126.2 MB | 670201112 ops/s | **1.00x** |
+| **memcpy** | COMPLETED | 95.07 ms | [87.82, 100.06] ms | 126.3 MB | 673213245 ops/s | **1.00x** |
+| **scalar** | COMPLETED | 118.56 ms | [88.31, 147.21] ms | 126.2 MB | 539820956 ops/s | 1.00x (Baseline) |
+| **unroll64** | COMPLETED | 110.42 ms | [103.52, 119.22] ms | 126.2 MB | 579618823 ops/s | **0.86x** |
+
+</details>
+
+<details>
+<summary><strong>Lowlevel Reduction (lowlevel_reduction) — View Benchmark Findings &amp; Visuals</strong></summary>
+
+![Lowlevel Reduction Chart](reports/latest/charts/lowlevel_reduction.svg)
+
+| Implementation | Status | Median Time | 95% Confidence Interval | Peak Memory | Throughput | Relative Speedup |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **asm** | COMPLETED | 60.17 ms | [43.56, 73.29] ms | 80.6 MB | 166205203 ops/s | **1.00x** |
+| **autovec** | COMPLETED | 44.05 ms | [43.61, 44.56] ms | 80.6 MB | 227038702 ops/s | **1.37x** |
+| **openmp** | COMPLETED | 54.68 ms | [39.09, 72.83] ms | 80.6 MB | 182887335 ops/s | **1.10x** |
+| **scalar** | COMPLETED | 63.73 ms | [61.20, 65.93] ms | 80.6 MB | 156903003 ops/s | 1.00x (Baseline) |
+| **simd_avx2** | COMPLETED | 37.10 ms | [25.85, 53.96] ms | 80.6 MB | 269567326 ops/s | **1.62x** |
+
+</details>
+
+<details>
+<summary><strong>Sieve (sieve) — View Benchmark Findings &amp; Visuals</strong></summary>
+
+![Sieve Chart](reports/latest/charts/sieve.svg)
+
+| Implementation | Status | Median Time | 95% Confidence Interval | Peak Memory | Throughput | Relative Speedup |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **cpp** | COMPLETED | 28.93 ms | [26.58, 31.08] ms | 21.7 MB | 172808428 ops/s | 1.00x (Baseline) |
+| **go** | COMPLETED | 28.00 ms | [23.82, 35.82] ms | 26.7 MB | 178571958 ops/s | **1.03x** |
+| **java** | COMPLETED | 164.65 ms | [142.16, 175.46] ms | 50.3 MB | 30366540 ops/s | **0.18x** |
+| **javascript** | COMPLETED | 136.41 ms | [88.64, 203.73] ms | 62.3 MB | 36655284 ops/s | **0.21x** |
+| **python** | COMPLETED | 1265.44 ms | [1197.95, 1351.37] ms | 26.9 MB | 3951187 ops/s | **0.02x** |
+| **rust** | COMPLETED | 41.38 ms | [37.83, 48.09] ms | 26.9 MB | 120841774 ops/s | **0.70x** |
+
+</details>
+
+<details>
+<summary><strong>Sort (sort) — View Benchmark Findings &amp; Visuals</strong></summary>
+
+![Sort Chart](reports/latest/charts/sort.svg)
+
+| Implementation | Status | Median Time | 95% Confidence Interval | Peak Memory | Throughput | Relative Speedup |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **cpp** | COMPLETED | 24.40 ms | [22.63, 26.42] ms | 16.9 MB | 8196948 ops/s | 1.00x (Baseline) |
+| **go** | COMPLETED | 22.70 ms | [18.72, 26.15] ms | 17.1 MB | 8811140 ops/s | **1.07x** |
+| **java** | COMPLETED | 191.03 ms | [0.00, 532.15] ms | 49.5 MB | 1046974 ops/s | **0.13x** |
+| **javascript** | COMPLETED | 121.07 ms | [64.69, 210.54] ms | 62.3 MB | 1651986 ops/s | **0.20x** |
+| **python** | COMPLETED | 847.85 ms | [402.35, 1543.05] ms | 23.2 MB | 235891 ops/s | **0.03x** |
+| **rust** | COMPLETED | 20.42 ms | [18.94, 22.73] ms | 20.3 MB | 9793639 ops/s | **1.19x** |
+
+</details>
+
+### Complete Reports & Reproducibility Links
+
+- 📄 **Full Markdown Report**: [reports/latest/report.md](reports/latest/report.md)
+- 🌐 **Interactive HTML Report**: [reports/latest/report.html](reports/latest/report.html)
+- 📊 **Summary Metrics**: [reports/latest/summary.json](reports/latest/summary.json)
+- 🔬 **Raw Observations**: [reports/latest/raw-results.json](reports/latest/raw-results.json)
+- 📑 **Comparison CSV**: [reports/latest/comparison.csv](reports/latest/comparison.csv)
+- 🛡️ **Reproducibility Manifest**: [reports/latest/manifest.json](reports/latest/manifest.json)
+
+```bash
+# Reproduce this report from existing benchmark data
+make report
+```
+
+<!-- EXECLENS_REPORT_END -->
+
+---
+
 ## Prerequisites
 
 To run ExecLens locally, ensure the following are installed:

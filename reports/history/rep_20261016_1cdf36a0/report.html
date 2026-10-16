@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExecLens — Benchmark Engineering Report</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --border: #1f2937;
+      --border-accent: #374151;
+      --text: #f9fafb;
+      --text-muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --accent-purple: #a855f7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 0 1rem 3rem 1rem;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header {
+      padding: 2.5rem 0 1.5rem 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #1e293b;
+      color: var(--accent);
+      border: 1px solid #334155;
+      margin-bottom: 0.75rem;
+    }
+    h1 { font-size: 2.25rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; letter-spacing: -0.5px; }
+    .tagline { color: var(--text-muted); font-size: 1.1rem; }
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+    .meta-bar strong { color: var(--text); }
+    .nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+    }
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+    .stat-val { font-size: 1.85rem; font-weight: 700; color: #fff; margin-top: 0.25rem; }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .card h2 { font-size: 1.35rem; font-weight: 700; margin-bottom: 1rem; color: #fff; }
+    .card h3 { font-size: 1.1rem; font-weight: 600; margin: 1.25rem 0 0.75rem 0; color: #e2e8f0; }
+    .chart-container {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin: 1.25rem 0;
+      text-align: center;
+      overflow-x: auto;
+    }
+    .chart-container img { max-width: 100%; height: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.875rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: #1f2937;
+      color: #9ca3af;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-accent);
+    }
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: #e5e7eb;
+    }
+    tr:hover td { background: #1a2234; }
+    .finding-card {
+      background: #131d2e;
+      border-left: 4px solid var(--accent);
+      border-radius: 0 0.5rem 0.5rem 0;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .finding-card.stat-sig { border-left-color: var(--accent-green); }
+    .finding-card.inconclusive { border-left-color: var(--accent-amber); }
+    .finding-title { font-weight: 700; font-size: 1.05rem; color: #fff; margin-bottom: 0.25rem; }
+    .finding-meta { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+    .finding-desc { font-size: 0.9rem; color: #cbd5e1; }
+    .finding-limitation { font-size: 0.8rem; color: #94a3b8; font-style: italic; margin-top: 0.5rem; }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">ExecLens Performance Lab</span>
+      <h1>Automated Benchmark Engineering Report</h1>
+      <p class="tagline">Measure fairly. Compare deeply. Understand why.</p>
+      <div class="meta-bar"><span><strong>Report ID:</strong> rep_20261016_1cdf36a0</span><span><strong>Date:</strong> 2026-10-16 22:28:14 UTC</span><span><strong>Host:</strong> Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz (linux, 8 vCPUs)</span><span><strong>Git Revision:</strong> 7e53c5e</span><span><strong>Version:</strong> v1.0.0</span></div>
+    </header>
+
+    <nav class="nav-tabs">
+      <button class="tab-btn active" onclick="openTab('summary')">Executive Summary</button>
+      <button class="tab-btn" onclick="openTab('findings')">Deterministic Findings</button>
+      <button class="tab-btn" onclick="openTab('workloads')">Workload Breakdown</button>
+      <button class="tab-btn" onclick="openTab('methodology')">Methodology &amp; Provenance</button>
+    </nav>
+
+    <!-- Tab 1: Executive Summary -->
+    <div id="tab-summary" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Configurations</div>
+          <div class="stat-val" style="color: #38bdf8;">22</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Successful Executions</div>
+          <div class="stat-val" style="color: #4ade80;">21</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Statistically Significant</div>
+          <div class="stat-val" style="color: #a78bfa;">12</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Skipped / Inconclusive</div>
+          <div class="stat-val" style="color: #fbbf24;">15</div>
+        </div></div>
+      <div class="card">
+        <h2>Benchmark Execution Coverage</h2>
+        <div class="chart-container">
+          <img src="charts/overview.svg" alt="ExecLens Execution Overview">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Cross-Workload Normalized Speedup Heatmap</h2>
+        <p class="tagline" style="font-size: 0.9rem; margin-bottom: 1rem;">Normalized speedup matrix relative to baseline. Green represents accelerated execution; red denotes slower execution.</p>
+        <div class="chart-container">
+          <img src="charts/workload-heatmap.svg" alt="Cross-Workload Heatmap">
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Deterministic Findings -->
+    <div id="tab-findings" class="tab-content">
+      <div class="card">
+        <h2>Programmatically Derived Findings</h2>
+        <p class="tagline" style="font-size: 0.9rem; margin-bottom: 1.5rem;">Derived strictly from verified observations and non-overlapping 95% Confidence Intervals:</p>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Cuda Vec Add Saxpy Configuration Unavailable: cuda (SKIPPED)</div>
+          <div class="finding-meta">ID: <code>find_001</code> | Workload: <code>cuda_vec_add_saxpy</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>SKIPPED</strong></div>
+          <div class="finding-desc">Execution cuda was marked SKIPPED. Accelerator backend unavailable: CUDA Toolkit 13.x dropped support for pre-Turing architectures (requires CC &gt;= 7.5). Host device &#39;NVIDIA GeForce MX230&#39; has Compute Capability 6.1 (Pascal), which is unsupported by the installed nvcc.</div>
+          <div class="finding-limitation">Caveat: Reported transparently without silent fallback or fabricated values.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Lowlevel Memcpy Lowest Observed Median Runtime: memcpy</div>
+          <div class="finding-meta">ID: <code>find_002</code> | Workload: <code>lowlevel_memcpy</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>95.07 ms</strong></div>
+          <div class="finding-desc">memcpy recorded the lowest observed median execution time of 95.07 ms across 3 iterations.</div>
+          <div class="finding-limitation">Caveat: Applies strictly to this specific workload, input configuration, and host environment.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Lowlevel Memcpy: Comparison Inconclusive for memcpy vs scalar</div>
+          <div class="finding-meta">ID: <code>find_003</code> | Workload: <code>lowlevel_memcpy</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>1.25x</strong></div>
+          <div class="finding-desc">memcpy achieved median 95.07 ms vs scalar baseline 118.56 ms (1.25x relative speedup). Observed 19.8% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Lowlevel Memcpy: Comparison Inconclusive for avx2_stream vs scalar</div>
+          <div class="finding-meta">ID: <code>find_004</code> | Workload: <code>lowlevel_memcpy</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>1.24x</strong></div>
+          <div class="finding-desc">avx2_stream achieved median 95.49 ms vs scalar baseline 118.56 ms (1.24x relative speedup). Observed 19.5% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Lowlevel Memcpy: Comparison Inconclusive for unroll64 vs scalar</div>
+          <div class="finding-meta">ID: <code>find_005</code> | Workload: <code>lowlevel_memcpy</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>1.07x</strong></div>
+          <div class="finding-desc">unroll64 achieved median 110.42 ms vs scalar baseline 118.56 ms (1.07x relative speedup). Observed 6.9% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-title">Lowlevel Memcpy Memory Efficiency: unroll64 Used 126.2 MB Peak RSS</div>
+          <div class="finding-meta">ID: <code>find_006</code> | Workload: <code>lowlevel_memcpy</code> | Status: <strong>PRACTICAL_DIFFERENCE</strong> | Effect: <strong>126.2 MB (1.0x less)</strong></div>
+          <div class="finding-desc">unroll64 demonstrated the lowest physical memory footprint (126.2 MB peak RSS) compared to memcpy (126.3 MB peak RSS, 1.0x difference).</div>
+          <div class="finding-limitation">Caveat: Captures peak physical RSS of child process; does not isolate sub-allocator arena fragmentation from active working sets.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Lowlevel Reduction Lowest Observed Median Runtime: simd_avx2</div>
+          <div class="finding-meta">ID: <code>find_007</code> | Workload: <code>lowlevel_reduction</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>37.10 ms</strong></div>
+          <div class="finding-desc">simd_avx2 recorded the lowest observed median execution time of 37.10 ms across 3 iterations.</div>
+          <div class="finding-limitation">Caveat: Applies strictly to this specific workload, input configuration, and host environment.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Lowlevel Reduction: simd_avx2 Observed 1.72x Faster than scalar</div>
+          <div class="finding-meta">ID: <code>find_008</code> | Workload: <code>lowlevel_reduction</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>1.72x</strong></div>
+          <div class="finding-desc">simd_avx2 achieved median 37.10 ms vs scalar baseline 63.73 ms (1.72x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (1.72x faster, 41.8% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Lowlevel Reduction: autovec Observed 1.45x Faster than scalar</div>
+          <div class="finding-meta">ID: <code>find_009</code> | Workload: <code>lowlevel_reduction</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>1.45x</strong></div>
+          <div class="finding-desc">autovec achieved median 44.05 ms vs scalar baseline 63.73 ms (1.45x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (1.45x faster, 30.9% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Lowlevel Reduction: Comparison Inconclusive for openmp vs scalar</div>
+          <div class="finding-meta">ID: <code>find_010</code> | Workload: <code>lowlevel_reduction</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>1.17x</strong></div>
+          <div class="finding-desc">openmp achieved median 54.68 ms vs scalar baseline 63.73 ms (1.17x relative speedup). Observed 14.2% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Lowlevel Reduction: Comparison Inconclusive for asm vs scalar</div>
+          <div class="finding-meta">ID: <code>find_011</code> | Workload: <code>lowlevel_reduction</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>1.06x</strong></div>
+          <div class="finding-desc">asm achieved median 60.17 ms vs scalar baseline 63.73 ms (1.06x relative speedup). Observed 5.6% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-title">Lowlevel Reduction Memory Efficiency: autovec Used 80.6 MB Peak RSS</div>
+          <div class="finding-meta">ID: <code>find_012</code> | Workload: <code>lowlevel_reduction</code> | Status: <strong>PRACTICAL_DIFFERENCE</strong> | Effect: <strong>80.6 MB (1.0x less)</strong></div>
+          <div class="finding-desc">autovec demonstrated the lowest physical memory footprint (80.6 MB peak RSS) compared to openmp (80.6 MB peak RSS, 1.0x difference).</div>
+          <div class="finding-limitation">Caveat: Captures peak physical RSS of child process; does not isolate sub-allocator arena fragmentation from active working sets.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sieve Lowest Observed Median Runtime: go</div>
+          <div class="finding-meta">ID: <code>find_013</code> | Workload: <code>sieve</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>28.00 ms</strong></div>
+          <div class="finding-desc">go recorded the lowest observed median execution time of 28.00 ms across 5 iterations.</div>
+          <div class="finding-limitation">Caveat: Applies strictly to this specific workload, input configuration, and host environment.</div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-title">Sieve: go Observed 1.03x Faster than cpp</div>
+          <div class="finding-meta">ID: <code>find_014</code> | Workload: <code>sieve</code> | Status: <strong>NEGLIGIBLE_DIFFERENCE</strong> | Effect: <strong>1.03x</strong></div>
+          <div class="finding-desc">go achieved median 28.00 ms vs cpp baseline 28.93 ms (1.03x relative speedup). Observed 3.2% median difference is within 95% confidence interval overlap and below the 5.0% threshold.</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sieve: rust Observed 1.43x Slower than cpp</div>
+          <div class="finding-meta">ID: <code>find_015</code> | Workload: <code>sieve</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>0.70x</strong></div>
+          <div class="finding-desc">rust achieved median 41.38 ms vs cpp baseline 28.93 ms (0.70x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (1.43x slower, 43.0% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sieve: javascript Observed 4.71x Slower than cpp</div>
+          <div class="finding-meta">ID: <code>find_016</code> | Workload: <code>sieve</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>0.21x</strong></div>
+          <div class="finding-desc">javascript achieved median 136.41 ms vs cpp baseline 28.93 ms (0.21x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (4.71x slower, 371.4% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sieve: java Observed 5.69x Slower than cpp</div>
+          <div class="finding-meta">ID: <code>find_017</code> | Workload: <code>sieve</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>0.18x</strong></div>
+          <div class="finding-desc">java achieved median 164.65 ms vs cpp baseline 28.93 ms (0.18x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (5.69x slower, 469.1% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sieve: python Observed 43.74x Slower than cpp</div>
+          <div class="finding-meta">ID: <code>find_018</code> | Workload: <code>sieve</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>0.02x</strong></div>
+          <div class="finding-desc">python achieved median 1265.44 ms vs cpp baseline 28.93 ms (0.02x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (43.74x slower, 4273.6% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-title">Sieve Memory Efficiency: cpp Used 21.7 MB Peak RSS</div>
+          <div class="finding-meta">ID: <code>find_019</code> | Workload: <code>sieve</code> | Status: <strong>PRACTICAL_DIFFERENCE</strong> | Effect: <strong>21.7 MB (2.9x less)</strong></div>
+          <div class="finding-desc">cpp demonstrated the lowest physical memory footprint (21.7 MB peak RSS) compared to javascript (62.3 MB peak RSS, 2.9x difference).</div>
+          <div class="finding-limitation">Caveat: Captures peak physical RSS of child process; does not isolate sub-allocator arena fragmentation from active working sets.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sieve Stability Notice: High Measurement Variance in go (CV 16.2%)</div>
+          <div class="finding-meta">ID: <code>find_020</code> | Workload: <code>sieve</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>16.2%</strong></div>
+          <div class="finding-desc">go showed high dispersion across iterations (StdDev ±4.83 ms, CV 16.2% exceeding the 15% threshold).</div>
+          <div class="finding-limitation">Caveat: High variance indicates JIT compilation de-optimization, garbage collection pauses, or background OS core scheduling preemption.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sieve Stability Notice: High Measurement Variance in javascript (CV 31.7%)</div>
+          <div class="finding-meta">ID: <code>find_021</code> | Workload: <code>sieve</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>31.7%</strong></div>
+          <div class="finding-desc">javascript showed high dispersion across iterations (StdDev ±46.35 ms, CV 31.7% exceeding the 15% threshold).</div>
+          <div class="finding-limitation">Caveat: High variance indicates JIT compilation de-optimization, garbage collection pauses, or background OS core scheduling preemption.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sort Lowest Observed Median Runtime: rust</div>
+          <div class="finding-meta">ID: <code>find_022</code> | Workload: <code>sort</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>20.42 ms</strong></div>
+          <div class="finding-desc">rust recorded the lowest observed median execution time of 20.42 ms across 3 iterations.</div>
+          <div class="finding-limitation">Caveat: Applies strictly to this specific workload, input configuration, and host environment.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sort: Comparison Inconclusive for rust vs cpp</div>
+          <div class="finding-meta">ID: <code>find_023</code> | Workload: <code>sort</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>1.19x</strong></div>
+          <div class="finding-desc">rust achieved median 20.42 ms vs cpp baseline 24.40 ms (1.19x relative speedup). Observed 16.3% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sort: Comparison Inconclusive for go vs cpp</div>
+          <div class="finding-meta">ID: <code>find_024</code> | Workload: <code>sort</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>1.07x</strong></div>
+          <div class="finding-desc">go achieved median 22.70 ms vs cpp baseline 24.40 ms (1.07x relative speedup). Observed 7.0% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sort: javascript Observed 4.96x Slower than cpp</div>
+          <div class="finding-meta">ID: <code>find_025</code> | Workload: <code>sort</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>0.20x</strong></div>
+          <div class="finding-desc">javascript achieved median 121.07 ms vs cpp baseline 24.40 ms (0.20x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (4.96x slower, 396.2% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sort: Comparison Inconclusive for java vs cpp</div>
+          <div class="finding-meta">ID: <code>find_026</code> | Workload: <code>sort</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>0.13x</strong></div>
+          <div class="finding-desc">java achieved median 191.03 ms vs cpp baseline 24.40 ms (0.13x relative speedup). Observed 682.9% median difference exceeds threshold, but confidence intervals overlap due to sample variance (noise).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card stat-sig">
+          <div class="finding-title">Sort: python Observed 34.75x Slower than cpp</div>
+          <div class="finding-meta">ID: <code>find_027</code> | Workload: <code>sort</code> | Status: <strong>STATISTICALLY_SIGNIFICANT</strong> | Effect: <strong>0.03x</strong></div>
+          <div class="finding-desc">python achieved median 847.85 ms vs cpp baseline 24.40 ms (0.03x relative speedup). Statistically significant difference with non-overlapping 95% confidence intervals (34.75x slower, 3374.9% difference).</div>
+          <div class="finding-limitation">Caveat: Speedup is non-transferable across differing algorithmic patterns, I/O profiles, or unverified hardware configurations.</div>
+        </div>
+        <div class="finding-card">
+          <div class="finding-title">Sort Memory Efficiency: cpp Used 16.9 MB Peak RSS</div>
+          <div class="finding-meta">ID: <code>find_028</code> | Workload: <code>sort</code> | Status: <strong>PRACTICAL_DIFFERENCE</strong> | Effect: <strong>16.9 MB (3.7x less)</strong></div>
+          <div class="finding-desc">cpp demonstrated the lowest physical memory footprint (16.9 MB peak RSS) compared to javascript (62.3 MB peak RSS, 3.7x difference).</div>
+          <div class="finding-limitation">Caveat: Captures peak physical RSS of child process; does not isolate sub-allocator arena fragmentation from active working sets.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sort Stability Notice: High Measurement Variance in python (CV 23.6%)</div>
+          <div class="finding-meta">ID: <code>find_029</code> | Workload: <code>sort</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>23.6%</strong></div>
+          <div class="finding-desc">python showed high dispersion across iterations (StdDev ±229.58 ms, CV 23.6% exceeding the 15% threshold).</div>
+          <div class="finding-limitation">Caveat: High variance indicates JIT compilation de-optimization, garbage collection pauses, or background OS core scheduling preemption.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sort Stability Notice: High Measurement Variance in java (CV 47.0%)</div>
+          <div class="finding-meta">ID: <code>find_030</code> | Workload: <code>sort</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>47.0%</strong></div>
+          <div class="finding-desc">java showed high dispersion across iterations (StdDev ±115.40 ms, CV 47.0% exceeding the 15% threshold).</div>
+          <div class="finding-limitation">Caveat: High variance indicates JIT compilation de-optimization, garbage collection pauses, or background OS core scheduling preemption.</div>
+        </div>
+        <div class="finding-card inconclusive">
+          <div class="finding-title">Sort Stability Notice: High Measurement Variance in javascript (CV 21.3%)</div>
+          <div class="finding-meta">ID: <code>find_031</code> | Workload: <code>sort</code> | Status: <strong>INCONCLUSIVE</strong> | Effect: <strong>21.3%</strong></div>
+          <div class="finding-desc">javascript showed high dispersion across iterations (StdDev ±29.35 ms, CV 21.3% exceeding the 15% threshold).</div>
+          <div class="finding-limitation">Caveat: High variance indicates JIT compilation de-optimization, garbage collection pauses, or background OS core scheduling preemption.</div>
+        </div></div>
+    </div>
+
+    <!-- Tab 3: Workload Breakdown -->
+    <div id="tab-workloads" class="tab-content">
+      <div class="card">
+        <h2>Cuda Vec Add Saxpy (<code>cuda_vec_add_saxpy</code>)</h2>
+        <div class="meta-bar" style="margin-top: 0; margin-bottom: 1rem;">
+          <span><strong>Track:</strong> accelerator</span>
+          <span><strong>Mode:</strong> standard</span>
+          <span><strong>Baseline:</strong> cpp</span>
+        </div>
+        <div class="chart-container">
+          <img src="charts/cuda_vec_add_saxpy.svg" alt="Cuda Vec Add Saxpy Chart">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Implementation</th>
+              <th>Status</th>
+              <th>Median (ms)</th>
+              <th>Mean (ms)</th>
+              <th>95% CI (ms)</th>
+              <th>StdDev (CV%)</th>
+              <th>Peak RSS</th>
+              <th>Throughput</th>
+              <th>Relative Speedup</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>cuda</strong></td>
+              <td>SKIPPED</td>
+              <td colspan="7"><em>Accelerator backend unavailable: CUDA Toolkit 13.x dropped support for pre-Turing architectures (requires CC &gt;= 7.5). Host device &#39;NVIDIA GeForce MX230&#39; has Compute Capability 6.1 (Pascal), which is unsupported by the installed nvcc.</em></td>
+            </tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Lowlevel Memcpy (<code>lowlevel_memcpy</code>)</h2>
+        <div class="meta-bar" style="margin-top: 0; margin-bottom: 1rem;">
+          <span><strong>Track:</strong> lowlevel</span>
+          <span><strong>Mode:</strong> standard</span>
+          <span><strong>Baseline:</strong> scalar</span>
+        </div>
+        <div class="chart-container">
+          <img src="charts/lowlevel_memcpy.svg" alt="Lowlevel Memcpy Chart">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Implementation</th>
+              <th>Status</th>
+              <th>Median (ms)</th>
+              <th>Mean (ms)</th>
+              <th>95% CI (ms)</th>
+              <th>StdDev (CV%)</th>
+              <th>Peak RSS</th>
+              <th>Throughput</th>
+              <th>Relative Speedup</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>avx2_stream</strong></td>
+              <td>COMPLETED</td>
+              <td>95.49</td>
+              <td>94.81</td>
+              <td>[87.81, 101.80]</td>
+              <td>±2.82 (3.0%)</td>
+              <td>126.2 MB</td>
+              <td>670201112 ops/s</td>
+              <td><strong>1.00x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>memcpy</strong></td>
+              <td>COMPLETED</td>
+              <td>95.07</td>
+              <td>93.94</td>
+              <td>[87.82, 100.06]</td>
+              <td>±2.46 (2.6%)</td>
+              <td>126.3 MB</td>
+              <td>673213245 ops/s</td>
+              <td><strong>1.00x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>scalar</strong></td>
+              <td>COMPLETED</td>
+              <td>118.56</td>
+              <td>117.76</td>
+              <td>[88.31, 147.21]</td>
+              <td>±11.85 (10.1%)</td>
+              <td>126.2 MB</td>
+              <td>539820956 ops/s</td>
+              <td>1.00x (Baseline)</td>
+            </tr>
+            <tr>
+              <td><strong>unroll64</strong></td>
+              <td>COMPLETED</td>
+              <td>110.42</td>
+              <td>111.37</td>
+              <td>[103.52, 119.22]</td>
+              <td>±3.16 (2.8%)</td>
+              <td>126.2 MB</td>
+              <td>579618823 ops/s</td>
+              <td><strong>0.86x</strong></td>
+            </tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Lowlevel Reduction (<code>lowlevel_reduction</code>)</h2>
+        <div class="meta-bar" style="margin-top: 0; margin-bottom: 1rem;">
+          <span><strong>Track:</strong> lowlevel</span>
+          <span><strong>Mode:</strong> standard</span>
+          <span><strong>Baseline:</strong> scalar</span>
+        </div>
+        <div class="chart-container">
+          <img src="charts/lowlevel_reduction.svg" alt="Lowlevel Reduction Chart">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Implementation</th>
+              <th>Status</th>
+              <th>Median (ms)</th>
+              <th>Mean (ms)</th>
+              <th>95% CI (ms)</th>
+              <th>StdDev (CV%)</th>
+              <th>Peak RSS</th>
+              <th>Throughput</th>
+              <th>Relative Speedup</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>asm</strong></td>
+              <td>COMPLETED</td>
+              <td>60.17</td>
+              <td>58.43</td>
+              <td>[43.56, 73.29]</td>
+              <td>±5.98 (10.2%)</td>
+              <td>80.6 MB</td>
+              <td>166205203 ops/s</td>
+              <td><strong>1.00x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>autovec</strong></td>
+              <td>COMPLETED</td>
+              <td>44.05</td>
+              <td>44.09</td>
+              <td>[43.61, 44.56]</td>
+              <td>±0.19 (0.4%)</td>
+              <td>80.6 MB</td>
+              <td>227038702 ops/s</td>
+              <td><strong>1.37x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>openmp</strong></td>
+              <td>COMPLETED</td>
+              <td>54.68</td>
+              <td>55.96</td>
+              <td>[39.09, 72.83]</td>
+              <td>±6.79 (12.1%)</td>
+              <td>80.6 MB</td>
+              <td>182887335 ops/s</td>
+              <td><strong>1.10x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>scalar</strong></td>
+              <td>COMPLETED</td>
+              <td>63.73</td>
+              <td>63.57</td>
+              <td>[61.20, 65.93]</td>
+              <td>±0.95 (1.5%)</td>
+              <td>80.6 MB</td>
+              <td>156903003 ops/s</td>
+              <td>1.00x (Baseline)</td>
+            </tr>
+            <tr>
+              <td><strong>simd_avx2</strong></td>
+              <td>COMPLETED</td>
+              <td>37.10</td>
+              <td>39.90</td>
+              <td>[25.85, 53.96]</td>
+              <td>±5.66 (14.2%)</td>
+              <td>80.6 MB</td>
+              <td>269567326 ops/s</td>
+              <td><strong>1.62x</strong></td>
+            </tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Sieve (<code>sieve</code>)</h2>
+        <div class="meta-bar" style="margin-top: 0; margin-bottom: 1rem;">
+          <span><strong>Track:</strong> languages</span>
+          <span><strong>Mode:</strong> standard</span>
+          <span><strong>Baseline:</strong> cpp</span>
+        </div>
+        <div class="chart-container">
+          <img src="charts/sieve.svg" alt="Sieve Chart">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Implementation</th>
+              <th>Status</th>
+              <th>Median (ms)</th>
+              <th>Mean (ms)</th>
+              <th>95% CI (ms)</th>
+              <th>StdDev (CV%)</th>
+              <th>Peak RSS</th>
+              <th>Throughput</th>
+              <th>Relative Speedup</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>cpp</strong></td>
+              <td>COMPLETED</td>
+              <td>28.93</td>
+              <td>28.83</td>
+              <td>[26.58, 31.08]</td>
+              <td>±1.81 (6.3%)</td>
+              <td>21.7 MB</td>
+              <td>172808428 ops/s</td>
+              <td>1.00x (Baseline)</td>
+            </tr>
+            <tr>
+              <td><strong>go</strong></td>
+              <td>COMPLETED</td>
+              <td>28.00</td>
+              <td>29.82</td>
+              <td>[23.82, 35.82]</td>
+              <td>±4.83 (16.2%)</td>
+              <td>26.7 MB</td>
+              <td>178571958 ops/s</td>
+              <td><strong>1.03x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>java</strong></td>
+              <td>COMPLETED</td>
+              <td>164.65</td>
+              <td>158.81</td>
+              <td>[142.16, 175.46]</td>
+              <td>±13.41 (8.4%)</td>
+              <td>50.3 MB</td>
+              <td>30366540 ops/s</td>
+              <td><strong>0.18x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>javascript</strong></td>
+              <td>COMPLETED</td>
+              <td>136.41</td>
+              <td>146.19</td>
+              <td>[88.64, 203.73]</td>
+              <td>±46.35 (31.7%)</td>
+              <td>62.3 MB</td>
+              <td>36655284 ops/s</td>
+              <td><strong>0.21x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>python</strong></td>
+              <td>COMPLETED</td>
+              <td>1265.44</td>
+              <td>1274.66</td>
+              <td>[1197.95, 1351.37]</td>
+              <td>±61.79 (4.8%)</td>
+              <td>26.9 MB</td>
+              <td>3951187 ops/s</td>
+              <td><strong>0.02x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>rust</strong></td>
+              <td>COMPLETED</td>
+              <td>41.38</td>
+              <td>42.96</td>
+              <td>[37.83, 48.09]</td>
+              <td>±4.13 (9.6%)</td>
+              <td>26.9 MB</td>
+              <td>120841774 ops/s</td>
+              <td><strong>0.70x</strong></td>
+            </tr></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Sort (<code>sort</code>)</h2>
+        <div class="meta-bar" style="margin-top: 0; margin-bottom: 1rem;">
+          <span><strong>Track:</strong> languages</span>
+          <span><strong>Mode:</strong> quicksort</span>
+          <span><strong>Baseline:</strong> cpp</span>
+        </div>
+        <div class="chart-container">
+          <img src="charts/sort.svg" alt="Sort Chart">
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Implementation</th>
+              <th>Status</th>
+              <th>Median (ms)</th>
+              <th>Mean (ms)</th>
+              <th>95% CI (ms)</th>
+              <th>StdDev (CV%)</th>
+              <th>Peak RSS</th>
+              <th>Throughput</th>
+              <th>Relative Speedup</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>cpp</strong></td>
+              <td>COMPLETED</td>
+              <td>24.40</td>
+              <td>24.53</td>
+              <td>[22.63, 26.42]</td>
+              <td>±0.76 (3.1%)</td>
+              <td>16.9 MB</td>
+              <td>8196948 ops/s</td>
+              <td>1.00x (Baseline)</td>
+            </tr>
+            <tr>
+              <td><strong>go</strong></td>
+              <td>COMPLETED</td>
+              <td>22.70</td>
+              <td>22.44</td>
+              <td>[18.72, 26.15]</td>
+              <td>±1.49 (6.7%)</td>
+              <td>17.1 MB</td>
+              <td>8811140 ops/s</td>
+              <td><strong>1.07x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>java</strong></td>
+              <td>COMPLETED</td>
+              <td>191.03</td>
+              <td>245.47</td>
+              <td>[0.00, 532.15]</td>
+              <td>±115.40 (47.0%)</td>
+              <td>49.5 MB</td>
+              <td>1046974 ops/s</td>
+              <td><strong>0.13x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>javascript</strong></td>
+              <td>COMPLETED</td>
+              <td>121.07</td>
+              <td>137.62</td>
+              <td>[64.69, 210.54]</td>
+              <td>±29.35 (21.3%)</td>
+              <td>62.3 MB</td>
+              <td>1651986 ops/s</td>
+              <td><strong>0.20x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>python</strong></td>
+              <td>COMPLETED</td>
+              <td>847.85</td>
+              <td>972.70</td>
+              <td>[402.35, 1543.05]</td>
+              <td>±229.58 (23.6%)</td>
+              <td>23.2 MB</td>
+              <td>235891 ops/s</td>
+              <td><strong>0.03x</strong></td>
+            </tr>
+            <tr>
+              <td><strong>rust</strong></td>
+              <td>COMPLETED</td>
+              <td>20.42</td>
+              <td>20.83</td>
+              <td>[18.94, 22.73]</td>
+              <td>±0.76 (3.7%)</td>
+              <td>20.3 MB</td>
+              <td>9793639 ops/s</td>
+              <td><strong>1.19x</strong></td>
+            </tr></tbody>
+        </table>
+      </div></div>
+
+    <!-- Tab 4: Methodology & Provenance -->
+    <div id="tab-methodology" class="tab-content">
+      <div class="card">
+        <h2>Measurement Methodology &amp; Reproducibility</h2>
+        <p>ExecLens guarantees benchmark provenance through controlled isolation:</p>
+        <ul style="margin: 1rem 0 1rem 2rem; color: #cbd5e1;">
+          <li><strong>Phase Isolation:</strong> Build time, correctness validation, warm-up iterations, and steady-state runs are timed independently.</li>
+          <li><strong>Kernel MaxRSS:</strong> Peak physical memory is queried via Linux kernel <code>getrusage</code>.</li>
+          <li><strong>Statistical Rigor:</strong> Student's t 95% Confidence Intervals are calculated for all mean durations.</li>
+          <li><strong>Truthful Hardware Diagnostics:</strong> Missing or architecture-incompatible accelerators are logged transparently without silent fallback.</li>
+        </ul>
+        <h3>Reproducibility Manifest</h3>
+        <p>The manifest contains SHA-256 cryptographic checksums of all generated charts, CSV tables, and raw JSON observations.</p>
+        <div style="margin-top: 1rem;">
+          <a href="manifest.json" style="color: var(--accent); margin-right: 1.5rem;">Download Manifest (JSON)</a>
+          <a href="raw-results.json" style="color: var(--accent); margin-right: 1.5rem;">Raw Observations (JSON)</a>
+          <a href="comparison.csv" style="color: var(--accent);">Tabular Results (CSV)</a>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>Generated by <strong>ExecLens Automated Benchmark Reporting System</strong> | Measure fairly. Compare deeply. Understand why.</p>
+    </footer>
+  </div>
+
+  <script>
+    function openTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabName).classList.add('active');
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

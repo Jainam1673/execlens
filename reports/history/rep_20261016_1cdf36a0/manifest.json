@@ -1,0 +1,130 @@
+{
+  "manifest_version": "1.0.0",
+  "report_id": "rep_20261016_1cdf36a0",
+  "created_at": "2026-10-16T22:28:14.08716837Z",
+  "git_revision": "7e53c5e",
+  "host_fingerprint": {
+    "os": "linux",
+    "arch": "amd64",
+    "cpu_model": "Intel(R) Core(TM) i5-8265U CPU @ 1.60GHz",
+    "logical_cpus": 8,
+    "total_memory_bytes": 8160460800,
+    "hostname": "omarchy"
+  },
+  "statistical_config": {
+    "central_tendency": "Median",
+    "confidence_interval": "Student's t 95%",
+    "practical_threshold_percent": 5
+  },
+  "workloads_covered": [
+    "cuda_vec_add_saxpy",
+    "lowlevel_memcpy",
+    "lowlevel_reduction",
+    "sieve",
+    "sort"
+  ],
+  "run_ids": [
+    "run_366e5aee7600",
+    "run_72b0d316cee0",
+    "run_7e7098741bd1",
+    "run_95feffe4b617",
+    "run_c42edac4f6f8"
+  ],
+  "artifacts": [
+    {
+      "path": "charts/overview.svg",
+      "size_bytes": 2351,
+      "sha256": "cd9464d898b9379842e69eb7c7cf9ad47d4492a55df3bc573cd3b42bb360fbbd"
+    },
+    {
+      "path": "charts/runtime-comparison.svg",
+      "size_bytes": 648,
+      "sha256": "0245f1d7a160052380749e3f0f1d31328c2225528ae518286ded28d2bed12846"
+    },
+    {
+      "path": "charts/throughput-comparison.svg",
+      "size_bytes": 646,
+      "sha256": "79471e5a897228db3781c0de2c88117af16e91e1d1fac12f4e43b059b942bda8"
+    },
+    {
+      "path": "charts/memory-comparison.svg",
+      "size_bytes": 640,
+      "sha256": "2b678e7bb687298ca1e3cd20c7bb173f2c3e4db50a78d5622df2b8a96e2995a4"
+    },
+    {
+      "path": "charts/variability.svg",
+      "size_bytes": 636,
+      "sha256": "02edf54d75ec829403e7cd90129cb9c04f852fdefa5b1a52ffa119d497d8bd8c"
+    },
+    {
+      "path": "charts/scaling.svg",
+      "size_bytes": 2787,
+      "sha256": "f113bd34a79af2eb2cfddfe6a0f5b832bec99120c2581de2d5d2c47af7b5a944"
+    },
+    {
+      "path": "charts/startup-comparison.svg",
+      "size_bytes": 647,
+      "sha256": "1b93beb8ee668f852c5fdca96e05ea89c41ebd11987f53c8fff88cd251ae110e"
+    },
+    {
+      "path": "charts/build-comparison.svg",
+      "size_bytes": 669,
+      "sha256": "9f03f5f2a55931d2d1c3e1aba660ef61c0465b175da1ca87b78aec220da4ec00"
+    },
+    {
+      "path": "charts/workload-heatmap.svg",
+      "size_bytes": 13717,
+      "sha256": "bdd0b3d2ad7a4d020b0ef0673d3ca32f440efa471f0e987f8a48a4eb0dab1c67"
+    },
+    {
+      "path": "charts/cuda_vec_add_saxpy.svg",
+      "size_bytes": 1164,
+      "sha256": "09335523ba9ab9ddfc2ea697326a8e093c8cc3c0244f8e9e8ae7ffe906f0d5e6"
+    },
+    {
+      "path": "charts/lowlevel_memcpy.svg",
+      "size_bytes": 3568,
+      "sha256": "e9f124eea7f5724e3a7149eae9c1e32b674a860f65ae87a80d43bbc1adb1c77f"
+    },
+    {
+      "path": "charts/lowlevel_reduction.svg",
+      "size_bytes": 3965,
+      "sha256": "14de23f3b2203eb6d775bab62f803021c5ae070ea1690e69a87ddc374b38265c"
+    },
+    {
+      "path": "charts/sieve.svg",
+      "size_bytes": 4350,
+      "sha256": "4c7c7aad36ecbb479fb885ec038e14ca2772dc9e3df19dbe87fe20371902b7d8"
+    },
+    {
+      "path": "charts/sort.svg",
+      "size_bytes": 4345,
+      "sha256": "d0ccfa6675999cb1780963d6cde4ed1a80d5f989f2d32a85c2d4697b5bd754d4"
+    },
+    {
+      "path": "summary.json",
+      "size_bytes": 1131,
+      "sha256": "35f0a011371fdc03f24d2ae800ef1505e19e03dc9213df87c7811ec7c377abd3"
+    },
+    {
+      "path": "raw-results.json",
+      "size_bytes": 895023,
+      "sha256": "ab4f01f1187162614e45c42216da937935f4922321987248a5dce416618ca4ad"
+    },
+    {
+      "path": "comparison.csv",
+      "size_bytes": 2675,
+      "sha256": "b48c8349189725de8d1c26b4ed4c798d14409bf35020fa6328152ea6f4d8310e"
+    },
+    {
+      "path": "report.md",
+      "size_bytes": 33985,
+      "sha256": "54ecca198787976c602e77e7b2e245a044a9b2198e505396ce7144a0aafc31f1"
+    },
+    {
+      "path": "report.html",
+      "size_bytes": 44945,
+      "sha256": "3f128f3a9a86c8d0a280b78c8b50d0439a577a9169c9336cbcbca383273dfbb0"
+    }
+  ]
+}

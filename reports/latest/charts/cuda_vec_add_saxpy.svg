@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 320" width="820" height="320"><defs>
+		<style>
+			.title { font-family: system-ui, -apple-system, sans-serif; font-size: 15px; font-weight: 700; fill: #f8fafc; }
+			.subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+			.axis-label { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 600; fill: #f1f5f9; }
+			.val-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 600; fill: #e2e8f0; }
+		</style>
+	</defs><rect width="820" height="320" rx="8" fill="#0f172a" stroke="#1e293b" stroke-width="1"/><text x="24" y="32" class="title">Cuda Vec Add Saxpy — GPU Telemetry &amp; Execution Breakdown</text><text x="24" y="50" class="subtitle">Synchronized cudaEvent_t Kernel Duration vs PCIe Memory Transfers vs CPU Reference</text><text x="148" y="103" class="axis-label" text-anchor="end">cuda</text><rect x="160" y="85" width="560" height="28" fill="#334155" rx="3"/><text x="170" y="103" class="val-label" fill="#94a3b8">SKIPPED: Accelerator backend unavailable: CUDA Toolkit 13.x d...</text></svg>

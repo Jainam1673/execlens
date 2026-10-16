@@ -1,4 +1,4 @@
-.PHONY: all build build-backend build-frontend test test-unit test-integration smoke lint run clean
+.PHONY: all build build-backend build-frontend test test-unit test-integration smoke lint run clean benchmark report report-html report-verify benchmark-report clean-report
 
 all: build
 
@@ -33,6 +33,31 @@ lint:
 	@echo "Linting frontend code..."
 	npm --prefix frontend run lint
 
+benchmark: build-backend
+	@echo "Running representative benchmark suite across available runtimes..."
+	./execlens run --workload=sieve --iterations=5 --warmup=2
+	./execlens run --workload=sort --iterations=3 --mode=quicksort
+	./execlens lowlevel --workload=lowlevel_reduction --variants=scalar,autovec,simd_avx2,openmp,asm
+	./execlens lowlevel --workload=lowlevel_memcpy --variants=memcpy,scalar,unroll64,avx2_stream
+
+report: build-backend
+	@echo "Generating ExecLens automated benchmark reports and visualizations..."
+	./execlens report-gen --output=reports --baseline=cpp --update-readme=true
+
+report-html: report
+	@echo "Standalone HTML report available at: reports/latest/report.html"
+
+report-verify: build-backend
+	@echo "Verifying benchmark report artifacts, checksums, and README markers..."
+	./execlens report-verify --dir=reports/latest --readme=README.md
+
+benchmark-report: benchmark report report-verify
+	@echo "Benchmark execution, report generation, and verification complete!"
+
+clean-report:
+	@echo "Cleaning generated reports..."
+	rm -rf reports/
+
 run: build
 	./execlens server --port 8080
 
@@ -40,3 +65,4 @@ clean:
 	rm -f execlens
 	rm -rf frontend/dist
 	rm -f execlens.db execlens.db-wal execlens.db-shm
+

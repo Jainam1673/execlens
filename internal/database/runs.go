@@ -421,7 +421,15 @@ func (d *DB) GetRunDetail(ctx context.Context, runID string, baselineLangID stri
 	if baselineExec != nil && baselineExec.Summary != nil {
 		for i := range executions {
 			if executions[i].Summary != nil {
-				executions[i].Speedup = metrics.CalculateSpeedup(baselineExec.Summary.MedianNs, executions[i].Summary.MedianNs)
+				baseNs := baselineExec.Summary.MedianNs
+				if baseNs <= 0 {
+					baseNs = baselineExec.Summary.MedianMs * 1e6
+				}
+				candNs := executions[i].Summary.MedianNs
+				if candNs <= 0 {
+					candNs = executions[i].Summary.MedianMs * 1e6
+				}
+				executions[i].Speedup = metrics.CalculateSpeedup(baseNs, candNs)
 				executions[i].MemoryRatio = metrics.CalculateMemoryRatio(baselineExec.PeakMemoryBytes, executions[i].PeakMemoryBytes)
 				assessment, note := metrics.AssessDifference(*baselineExec.Summary, *executions[i].Summary, 5.0)
 				executions[i].Significance = assessment
