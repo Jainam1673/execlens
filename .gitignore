@@ -1,0 +1,17 @@
+# Binaries
+execlens
+*.exe
+
+# Database
+*.db
+*.db-wal
+*.db-shm
+
+# Frontend build artifacts and dependencies
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# OS and Temp files
+.DS_Store
+*.tmp

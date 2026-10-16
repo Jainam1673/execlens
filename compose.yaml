@@ -1,0 +1,20 @@
+services:
+  execlens:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: execlens:latest
+    container_name: execlens
+    ports:
+      - "8080:8080"
+    volumes:
+      - execlens-data:/app/data
+    restart: unless-stopped
+    environment:
+      - EXECLENS_HOST=0.0.0.0
+      - EXECLENS_PORT=8080
+      - EXECLENS_DB_PATH=/app/data/execlens.db
+      - EXECLENS_CONCURRENCY=1
+
+volumes:
+  execlens-data:
